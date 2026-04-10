@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TDX Q&A — Instructor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/firebase/firebase-app-compat.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase/firebase-firestore-compat.js" defer></script>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e2ddd6;
+    --text: #1a1814;
+    --text-muted: #7a7570;
+    --text-light: #b0aba4;
+    --accent: #0070d2;
+    --accent-light: #e8f2fc;
+    --accent-hover: #005fb2;
+    --success: #2e7d32;
+    --success-light: #e8f5e9;
+    --warn: #e65100;
+    --warn-light: #fff3e0;
+    --danger: #c62828;
+    --danger-light: #ffebee;
+    --pin: #6a0dad;
+    --pin-light: #f3e8ff;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem;
+  }
+  .login-card {
+    background: white; border-radius: 20px; padding: 3rem 2.5rem;
+    width: 100%; max-width: 420px; box-shadow: var(--shadow); border: 1px solid var(--border);
+  }
+  .login-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-light); color: var(--accent);
+    padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500;
+    margin-bottom: 1.5rem;
+  }
+  .login-title { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+  .login-sub { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem; }
+  .field { margin-bottom: 1.2rem; }
+  .field label { display: block; font-size: 0.82rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 1rem;
+    background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); background: white;
+  }
+  .field .hint { font-size: 0.8rem; color: var(--text-light); margin-top: 0.3rem; }
+  .btn-primary {
+    width: 100%; padding: 0.85rem; background: var(--accent); color: white; border: none;
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 1rem; font-weight: 500;
+    cursor: pointer; transition: background 0.15s; margin-top: 0.5rem;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { color: var(--warn); font-size: 0.88rem; margin-top: 0.75rem; text-align: center; }
+
+  /* ── INSTRUCTOR APP ── */
+  #app-screen { display: none; }
+
+  .top-bar {
+    background: white; border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .top-bar-left { display: flex; align-items: center; gap: 10px; }
+  .top-bar-logo { width: 28px; height: 28px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .top-bar-name { font-weight: 500; font-size: 0.95rem; }
+  .instructor-badge {
+    background: var(--accent); color: white;
+    font-size: 0.72rem; font-weight: 500; padding: 2px 10px; border-radius: 20px;
+  }
+  .top-bar-right { display: flex; align-items: center; gap: 8px; }
+  .code-badge {
+    font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    background: var(--text); color: white; padding: 4px 12px; border-radius: 6px;
+    cursor: pointer; user-select: all; letter-spacing: 0.1em;
+  }
+  .top-btn { font-size: 0.85rem; color: var(--text-muted); background: none; border: 1px solid var(--border); padding: 0.3rem 0.8rem; border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .top-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .app-body { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 56px); }
+  @media(max-width:900px){ .app-body { grid-template-columns: 1fr; } }
+
+  /* Sidebar */
+  .side-panel {
+    background: white; border-right: 1px solid var(--border);
+    padding: 0; overflow-y: auto; max-height: calc(100vh - 56px); position: sticky; top: 56px;
+  }
+  .side-section { border-bottom: 1px solid var(--border); }
+  .side-section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1.25rem; cursor: pointer; user-select: none;
+    transition: background 0.12s;
+  }
+  .side-section-header:hover { background: var(--bg); }
+  .side-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .side-chevron { color: var(--text-light); transition: transform 0.2s; font-size: 0.7rem; }
+  .side-section.collapsed .side-chevron { transform: rotate(-90deg); }
+  .side-section-body { padding: 0 1.25rem 1.1rem; }
+  .side-section.collapsed .side-section-body { display: none; }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .stat-tile { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; }
+  .stat-num { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.03em; }
+  .stat-lbl { font-size: 0.73rem; color: var(--text-muted); }
+
+  .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .filter-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer;
+    font-size: 0.88rem; color: var(--text-muted); transition: all 0.15s; border: none; background: none; font-family: inherit; text-align: left; width: 100%;
+  }
+  .filter-item:hover { background: var(--bg); }
+  .filter-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+  .filter-count { font-size: 0.75rem; background: var(--surface2); padding: 1px 7px; border-radius: 10px; }
+  .filter-item.active .filter-count { background: var(--accent); color: white; }
+
+  /* Session edit form */
+  .session-edit-form { display: flex; flex-direction: column; gap: 0.55rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+  .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .form-field label { font-size: 0.72rem; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mini-input {
+    width: 100%; padding: 0.55rem 0.75rem; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 0.88rem;
+    background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s;
+    min-width: 0;
+  }
+  .mini-input:focus { border-color: var(--accent); background: white; }
+  .mini-textarea { resize: vertical; min-height: 65px; }
+  .save-btn {
+    padding: 0.55rem; background: var(--accent); color: white; border: none;
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 0.88rem;
+    font-weight: 500; cursor: pointer; transition: background 0.15s; margin-top: 0.25rem;
+  }
+  .save-btn:hover { background: var(--accent-hover); }
+
+  /* Instructors manager */
+  .instructor-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.6rem; }
+  .instructor-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.45rem 0.75rem; font-size: 0.85rem;
+  }
+  .instructor-chip-name { font-weight: 500; }
+  .instructor-chip-remove {
+    background: none; border: none; color: var(--text-light); cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 0 2px; transition: color 0.15s;
+  }
+  .instructor-chip-remove:hover { color: var(--danger); }
+  .instructor-add-row { display: flex; gap: 0.4rem; }
+  .instructor-add-row input { flex: 1; min-width: 0; }
+  .add-btn {
+    padding: 0.5rem 0.75rem; background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 0.82rem;
+    color: var(--text-muted); cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    font-weight: 500;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  /* Main panel */
+  .main-panel { padding: 1.5rem; overflow-y: auto; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .panel-title { font-size: 1rem; font-weight: 600; }
+  .sort-row { display: flex; gap: 0.5rem; }
+  .sort-btn {
+    padding: 4px 12px; border: 1.5px solid var(--border); border-radius: 20px;
+    background: white; font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .sort-btn.active { background: var(--text); border-color: var(--text); color: white; }
+
+  /* Question card */
+  .q-card {
+    background: white; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.1rem 1.25rem; margin-bottom: 0.75rem; transition: box-shadow 0.15s;
+  }
+  .q-card:hover { box-shadow: var(--shadow); }
+  .q-card.pinned { border-left: 3px solid var(--pin); }
+  .q-card.answered { opacity: 0.8; }
+
+  .q-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; }
+  .q-author-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .q-author { font-size: 0.82rem; font-weight: 500; }
+  .q-email { font-size: 0.78rem; color: var(--text-light); font-family: 'DM Mono', monospace; }
+  .q-time { font-size: 0.78rem; color: var(--text-light); }
+  .q-votes { display: flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--text-muted); }
+  .q-badge { font-size: 0.72rem; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+  .badge-answered { background: var(--success-light); color: var(--success); }
+  .badge-pending { background: var(--warn-light); color: var(--warn); }
+  .badge-pinned { background: var(--pin-light); color: var(--pin); }
+
+  .q-text { font-size: 0.95rem; line-height: 1.55; margin-bottom: 0.75rem; }
+  .q-answer-area { margin-bottom: 0.75rem; }
+  .answer-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 0.4rem; }
+  .answer-box {
+    width: 100%; padding: 0.65rem 0.9rem; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem;
+    resize: vertical; min-height: 70px; outline: none; background: var(--bg); color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .answer-box:focus { border-color: var(--accent); background: white; }
+
+  .q-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .action-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: none; font-family: inherit; font-size: 0.8rem; color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .action-btn:hover { border-color: currentColor; }
+  .action-btn.btn-answer { color: var(--accent); }
+  .action-btn.btn-answer:hover { background: var(--accent-light); }
+  .action-btn.btn-pin { color: var(--pin); }
+  .action-btn.btn-pin:hover { background: var(--pin-light); }
+  .action-btn.btn-done { color: var(--success); }
+  .action-btn.btn-done:hover { background: var(--success-light); }
+  .action-btn.btn-pending { color: var(--warn); }
+  .action-btn.btn-pending:hover { background: var(--warn-light); }
+  .action-btn.btn-delete { color: var(--danger); }
+  .action-btn.btn-delete:hover { background: var(--danger-light); }
+
+  .show-answer-input { display: none; }
+
+  .empty-state { text-align: center; padding: 4rem 1rem; color: var(--text-muted); }
+
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    background: var(--text); color: white; padding: 0.7rem 1.2rem;
+    border-radius: var(--radius-sm); font-size: 0.88rem; z-index: 300;
+    transform: translateY(100px); opacity: 0; transition: transform 0.3s, opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Confirm modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    z-index: 200; align-items: center; justify-content: center; padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white; border-radius: var(--radius); padding: 1.5rem;
+    width: 100%; max-width: 380px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .modal-title { font-weight: 600; margin-bottom: 0.5rem; }
+  .modal-body { color: var(--text-muted); font-size: 0.92rem; margin-bottom: 1.25rem; line-height: 1.5; }
+  .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .btn-ghost { padding: 0.55rem 1.1rem; background: none; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
+  .btn-danger { padding: 0.55rem 1.1rem; background: var(--danger); color: white; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-badge">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Instructor access
+    </div>
+
+    <!-- SIGN IN MODE -->
+    <div id="mode-signin">
+      <h1 class="login-title">Welcome back</h1>
+      <p class="login-sub">Sign in with your instructor name and PIN.</p>
+      <div class="field">
+        <label>Your name</label>
+        <input id="signin-name" type="text" placeholder="e.g. Alex Rivera" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Your PIN</label>
+        <input id="signin-pin" type="password" placeholder="Enter your PIN" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" onclick="instructorLogin()">Sign in</button>
+      <p class="error-msg" id="login-error"></p>
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-top:1rem;">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:0.78rem;color:var(--text-light)">or</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <button onclick="enterDemoMode()" style="width:100%;margin-top:0.75rem;padding:0.75rem;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.9rem;color:var(--text-muted);cursor:pointer;font-weight:500;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+        🧪 Try the demo
+      </button>
+      <p style="text-align:center;margin-top:1.25rem;font-size:0.85rem;color:var(--text-muted)">
+        First time here?
+        <button onclick="switchMode('register')" style="background:none;border:none;color:var(--accent);font-family:inherit;font-size:0.85rem;cursor:pointer;font-weight:500;">Create an account →</button>
+      </p>
+    </div>
+
+    <!-- REGISTER MODE -->
+    <div id="mode-register" style="display:none">
+      <h1 class="login-title">Create your account</h1>
+      <p class="login-sub">Set up your instructor profile. You'll use this name and PIN every time you sign in.</p>
+      <div class="field">
+        <label>Your name</label>
+        <input id="reg-name" type="text" placeholder="e.g. Alex Rivera" autocomplete="username">
+        <p class="hint">This is how you'll appear as the instructor on student boards.</p>
+      </div>
+      <div class="field">
+        <label>Create a PIN</label>
+        <input id="reg-pin" type="password" placeholder="Choose a PIN (min 4 characters)" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirm PIN</label>
+        <input id="reg-pin2" type="password" placeholder="Repeat your PIN" autocomplete="new-password">
+      </div>
+      <button class="btn-primary" onclick="instructorRegister()">Create account</button>
+      <p class="error-msg" id="register-error"></p>
+      <p style="text-align:center;margin-top:1.25rem;font-size:0.85rem;color:var(--text-muted)">
+        Already have an account?
+        <button onclick="switchMode('signin')" style="background:none;border:none;color:var(--accent);font-family:inherit;font-size:0.85rem;cursor:pointer;font-weight:500;">Sign in →</button>
+      </p>
+    </div>
+
+    <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);font-size:0.82rem;color:var(--text-light);text-align:center;">
+      🔒 Future upgrade: Restrict to <strong>@salesforce.com</strong> via Salesforce OAuth<br>
+      <a href="#" style="color:var(--accent);text-decoration:none;font-size:0.8rem;">See setup instructions →</a>
+    </div>
+  </div>
+</div>
+
+<!-- INSTRUCTOR APP -->
+<div id="app-screen">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="top-bar-logo">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <span class="top-bar-name">TDX Q&amp;A</span>
+      <span class="instructor-badge">Instructor</span>
+      <span id="instructor-name-bar" style="font-size:0.82rem;color:var(--text-muted);"></span>
+      <span id="demo-badge" style="display:none;font-size:0.72rem;font-weight:500;padding:2px 10px;border-radius:20px;background:#fff3e0;color:#e65100;">Demo mode</span>
+    </div>
+    <div class="top-bar-right">
+      <button id="reset-demo-btn" onclick="resetDemo()" style="display:none;font-size:0.82rem;color:#e65100;background:none;border:1.5px solid #e65100;padding:0.25rem 0.8rem;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;" onmouseover="this.style.background='#fff3e0'" onmouseout="this.style.background='none'">↺ Reset demo</button>
+      <button id="student-view-btn" onclick="toggleStudentView()" style="display:none;font-size:0.82rem;color:#6a0dad;background:none;border:1.5px solid #6a0dad;padding:0.25rem 0.8rem;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.15s;" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='none'">👁 Student view</button>
+      <span id="active-code" class="code-badge" title="Click to copy" onclick="copyCode()">—</span>
+      <button class="top-btn" onclick="instructorLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- Side panel -->
+    <div class="side-panel">
+
+      <!-- Sessions — FIRST, always visible -->
+      <div class="side-section" id="sec-sessions">
+        <div class="side-section-header" onclick="toggleSection('sec-sessions')">
+          <span class="side-label">My sessions</span>
+          <span class="side-chevron">▾</span>
+        </div>
+        <div class="side-section-body">
+          <!-- Join or Create buttons -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.9rem;">
+            <button class="save-btn" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border);" onclick="openJoinSessionModal()">↗ Join session</button>
+            <button class="save-btn" style="background:var(--text);" onclick="openCreateSessionModal()">+ New session</button>
+          </div>
+          <div id="sessions-list" style="display:flex;flex-direction:column;gap:0.4rem;"></div>
+        </div>
+      </div>
+
+      <!-- Everything below only shown once a session is selected -->
+      <div id="session-dependent-sections" style="display:none;">
+
+        <!-- Stats -->
+        <div class="side-section" id="sec-stats">
+          <div class="side-section-header" onclick="toggleSection('sec-stats')">
+            <span class="side-label">Overview</span>
+            <span class="side-chevron">▾</span>
+          </div>
+          <div class="side-section-body">
+            <div class="stats-grid">
+              <div class="stat-tile"><div class="stat-num" id="stat-total">0</div><div class="stat-lbl">Total</div></div>
+              <div class="stat-tile"><div class="stat-num" id="stat-answered" style="color:var(--success)">0</div><div class="stat-lbl">Answered</div></div>
+              <div class="stat-tile"><div class="stat-num" id="stat-pending" style="color:var(--warn)">0</div><div class="stat-lbl">Pending</div></div>
+              <div class="stat-tile"><div class="stat-num" id="stat-pinned" style="color:var(--pin)">0</div><div class="stat-lbl">Pinned</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="side-section" id="sec-filters">
+          <div class="side-section-header" onclick="toggleSection('sec-filters')">
+            <span class="side-label">Filter</span>
+            <span class="side-chevron">▾</span>
+          </div>
+          <div class="side-section-body">
+            <div class="filter-group">
+              <button class="filter-item active" onclick="setFilter('all',this)">All questions <span class="filter-count" id="fc-all">0</span></button>
+              <button class="filter-item" onclick="setFilter('pinned',this)">📌 Pinned <span class="filter-count" id="fc-pinned">0</span></button>
+              <button class="filter-item" onclick="setFilter('pending',this)">⏳ Pending <span class="filter-count" id="fc-pending">0</span></button>
+              <button class="filter-item" onclick="setFilter('answered',this)">✅ Answered <span class="filter-count" id="fc-answered">0</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session settings -->
+        <div class="side-section collapsed" id="sec-session">
+          <div class="side-section-header" onclick="toggleSection('sec-session')">
+            <span class="side-label">Session settings</span>
+            <span class="side-chevron">▾</span>
+          </div>
+          <div class="side-section-body">
+            <div class="session-edit-form">
+              <div class="form-field">
+                <label>Class name</label>
+                <input class="mini-input" id="sf-class" placeholder="e.g. Agentforce Series" type="text">
+              </div>
+              <div class="form-field">
+                <label>Session name</label>
+                <input class="mini-input" id="sf-session" placeholder="e.g. Track A — Fundamentals" type="text">
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label>Date</label>
+                  <input class="mini-input" id="sf-date" type="date">
+                </div>
+                <div class="form-field">
+                  <label>Time</label>
+                  <input class="mini-input" id="sf-time" type="time">
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Room / Location</label>
+                <input class="mini-input" id="sf-room" placeholder="e.g. Hall D — Room 214" type="text">
+              </div>
+              <div class="form-field">
+                <label>Description / Agenda</label>
+                <textarea class="mini-input mini-textarea" id="sf-desc" placeholder="What will you cover in this session?"></textarea>
+              </div>
+              <button class="save-btn" onclick="saveSession()">Save session info</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Instructors -->
+        <div class="side-section collapsed" id="sec-instructors">
+          <div class="side-section-header" onclick="toggleSection('sec-instructors')">
+            <span class="side-label">Instructors</span>
+            <span class="side-chevron">▾</span>
+          </div>
+          <div class="side-section-body">
+            <div class="instructor-list" id="instructor-list">
+              <div style="font-size:0.82rem;color:var(--text-light);text-align:center;padding:0.5rem">No instructors added yet</div>
+            </div>
+            <div class="instructor-add-row">
+              <input class="mini-input" id="new-instructor-input" type="text" placeholder="Instructor name" onkeydown="if(event.key==='Enter')addInstructor()">
+              <button class="add-btn" onclick="addInstructor()">+ Add</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-light);margin-top:0.5rem;line-height:1.4;">Names shown on the student board under session info.</p>
+          </div>
+        </div>
+
+      </div><!-- end session-dependent-sections -->
+
+    </div>
+
+    <!-- Main panel -->
+    <div class="main-panel">
+      <div class="panel-header">
+        <div class="panel-title" id="panel-title">Questions</div>
+        <div class="sort-row">
+          <button class="sort-btn active" onclick="setSort('recent',this)">Recent</button>
+          <button class="sort-btn" onclick="setSort('votes',this)">Most voted</button>
+        </div>
+      </div>
+      <div id="questions-list">
+        <div class="empty-state">
+          <p style="font-size:0.95rem;">Select or create a session to get started.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Student demo panel -->
+<div id="student-demo-panel" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,0.5);backdrop-filter:blur(2px);" onclick="if(event.target===this)toggleStudentView()">
+  <div style="position:absolute;top:0;right:0;bottom:0;width:520px;background:#f7f6f3;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,0.15);animation:slideInRight 0.25s cubic-bezier(.4,0,.2,1);">
+    <style>
+      @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    </style>
+    <!-- Student panel top bar -->
+    <div style="background:#fff;border-bottom:1px solid #e2ddd6;padding:0 1.25rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:24px;height:24px;background:#6a0dad;border-radius:7px;display:flex;align-items:center;justify-content:center;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <span style="font-size:.88rem;font-weight:500;">Student view</span>
+        <span style="background:#f3e8ff;color:#6a0dad;font-size:.68rem;font-weight:500;padding:2px 8px;border-radius:20px;">Demo preview</span>
+      </div>
+      <button onclick="toggleStudentView()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#7a7570;line-height:1;">×</button>
+    </div>
+
+    <!-- Session info -->
+    <div style="background:#fff;border-bottom:1px solid #e2ddd6;padding:.9rem 1.25rem;flex-shrink:0;">
+      <div style="font-weight:600;font-size:.95rem;letter-spacing:-.02em;margin-bottom:.4rem;" id="sdemo-session-title">Agentforce Fundamentals — Track A</div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+        <span style="font-size:.78rem;color:#7a7570;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Alex Rivera
+        </span>
+        <span style="font-size:.78rem;color:#7a7570;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Hall D — Room 214
+        </span>
+      </div>
+    </div>
+
+    <!-- Ask box -->
+    <div style="background:#fff;border-bottom:1px solid #e2ddd6;padding:.9rem 1.25rem;flex-shrink:0;">
+      <div style="font-weight:500;font-size:.85rem;margin-bottom:.6rem;">Ask a question</div>
+      <textarea id="sdemo-q-text" placeholder="What's on your mind?" style="width:100%;border:1.5px solid #e2ddd6;border-radius:8px;padding:.6rem .8rem;font-family:inherit;font-size:.85rem;resize:none;height:70px;background:#f7f6f3;color:#1a1814;outline:none;" onfocus="this.style.borderColor='#0070d2';this.style.background='#fff'" onblur="this.style.borderColor='#e2ddd6';this.style.background='#f7f6f3'"></textarea>
+      <div style="display:flex;gap:.6rem;margin-top:.5rem;">
+        <input type="text" id="sdemo-name" placeholder="Your name (optional)" value="Demo Student" style="flex:1;padding:.5rem .7rem;border:1.5px solid #e2ddd6;border-radius:8px;font-family:inherit;font-size:.82rem;background:#f7f6f3;color:#1a1814;outline:none;">
+        <button onclick="sdemoSubmit()" style="padding:.5rem 1.1rem;background:#0070d2;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.82rem;font-weight:500;cursor:pointer;">Submit</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div style="display:flex;gap:.4rem;padding:.65rem 1.25rem;background:#fff;border-bottom:1px solid #e2ddd6;flex-shrink:0;" id="sdemo-filters">
+      <button class="sdemo-filter active" data-f="all" onclick="sdemoSetFilter('all',this)" style="padding:3px 11px;border:1.5px solid #0070d2;border-radius:20px;background:#e8f2fc;font-family:inherit;font-size:.75rem;color:#0070d2;cursor:pointer;">All</button>
+      <button class="sdemo-filter" data-f="unanswered" onclick="sdemoSetFilter('unanswered',this)" style="padding:3px 11px;border:1.5px solid #e2ddd6;border-radius:20px;background:#fff;font-family:inherit;font-size:.75rem;color:#7a7570;cursor:pointer;">Unanswered</button>
+      <button class="sdemo-filter" data-f="answered" onclick="sdemoSetFilter('answered',this)" style="padding:3px 11px;border:1.5px solid #e2ddd6;border-radius:20px;background:#fff;font-family:inherit;font-size:.75rem;color:#7a7570;cursor:pointer;">Answered</button>
+      <button class="sdemo-filter" data-f="pinned" onclick="sdemoSetFilter('pinned',this)" style="padding:3px 11px;border:1.5px solid #e2ddd6;border-radius:20px;background:#fff;font-family:inherit;font-size:.75rem;color:#7a7570;cursor:pointer;">Pinned</button>
+    </div>
+
+    <!-- Questions feed -->
+    <div id="sdemo-questions" style="flex:1;overflow-y:auto;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem;"></div>
+
+    <!-- Stats bar -->
+    <div style="background:#fff;border-top:1px solid #e2ddd6;padding:.6rem 1.25rem;display:flex;gap:1.5rem;flex-shrink:0;">
+      <span style="font-size:.75rem;color:#7a7570;">Total: <strong id="sdemo-stat-total" style="color:#1a1814;">0</strong></span>
+      <span style="font-size:.75rem;color:#7a7570;">Answered: <strong id="sdemo-stat-ans" style="color:#2e7d32;">0</strong></span>
+      <span style="font-size:.75rem;color:#7a7570;">Pending: <strong id="sdemo-stat-pen" style="color:#e65100;">0</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- Join session modal -->
+<div class="modal-overlay" id="join-session-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title">Join a session</div>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.1rem;line-height:1.5;">Enter the session code shared by the session owner to access it as a co-instructor.</p>
+    <div class="field">
+      <label style="font-size:0.78rem;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;display:block;">Session code</label>
+      <input id="join-session-code" class="mini-input" type="text" placeholder="TDX-XXXX" style="font-family:'DM Mono',monospace;font-size:1.1rem;letter-spacing:0.15em;text-align:center;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')instructorJoinSession()">
+    </div>
+    <p class="error-msg" id="join-session-error" style="font-size:0.82rem;color:var(--warn);min-height:1.2rem;margin-bottom:0.5rem;"></p>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeJoinSessionModal()">Cancel</button>
+      <button class="save-btn" style="padding:0.55rem 1.25rem;margin-top:0;" onclick="instructorJoinSession()">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create session modal -->
+<div class="modal-overlay" id="create-session-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-title">Create a new session</div>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.1rem;line-height:1.5;">Fill in the details below. A session code will be generated when you save.</p>
+    <div style="display:flex;flex-direction:column;gap:0.6rem;">
+      <div class="form-field">
+        <label>Class name</label>
+        <input class="mini-input" id="new-sf-class" placeholder="e.g. Agentforce Series" type="text">
+      </div>
+      <div class="form-field">
+        <label>Session name</label>
+        <input class="mini-input" id="new-sf-session" placeholder="e.g. Track A — Fundamentals" type="text">
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Date</label>
+          <input class="mini-input" id="new-sf-date" type="date">
+        </div>
+        <div class="form-field">
+          <label>Time</label>
+          <input class="mini-input" id="new-sf-time" type="time">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Room / Location</label>
+        <input class="mini-input" id="new-sf-room" placeholder="e.g. Hall D — Room 214" type="text">
+      </div>
+      <div class="form-field">
+        <label>Description / Agenda <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-light)">(optional)</span></label>
+        <textarea class="mini-input mini-textarea" id="new-sf-desc" placeholder="What will you cover?"></textarea>
+      </div>
+    </div>
+    <p class="error-msg" id="create-session-error" style="font-size:0.82rem;color:var(--warn);min-height:1.2rem;margin-bottom:0.5rem;"></p>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeCreateSessionModal()">Cancel</button>
+      <button class="save-btn" style="padding:0.55rem 1.25rem;margin-top:0;" onclick="confirmCreateSession()">Create session</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-title">Delete this question?</div>
+    <div class="modal-body">This action can't be undone. The question and any answer will be permanently removed.</div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeDelete()">Cancel</button>
+      <button class="btn-danger" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  FIREBASE CONFIG
+// ══════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCM_fXpm_F2a4-h04m18UPy472UmDaa8OE",
+  authDomain: "tdx-qa.firebaseapp.com",
+  projectId: "tdx-qa",
+  storageBucket: "tdx-qa.firebasestorage.app",
+  messagingSenderId: "964102376485",
+  appId: "1:964102376485:web:bfa3d741284a1ef20f03cc"
+};
+// ══════════════════════════════════════════════
+
+let db, activeSessionCode = null, allQuestions = [];
+let currentFilter = 'all', currentSort = 'recent';
+let deleteTargetId = null, unsubQuestions = null, unsubSession = null;
+let allSessions = [], currentInstructor = null, isDemoMode = false;
+
+const DEMO_SESSION_CODE = 'TDX-DEMO';
+const DEMO_SESSION = {
+  id: DEMO_SESSION_CODE,
+  className: 'Agentforce Instructor Series',
+  sessionName: 'Agentforce Fundamentals — Track A',
+  instructors: ['Alex Rivera', 'Jordan Lee'],
+  instructorNames: 'Alex Rivera, Jordan Lee',
+  sessionDate: 'Apr 10, 2026',
+  sessionTime: '10:00 AM',
+  room: 'Hall D — Room 214',
+  description: 'Intro to Agentforce: architecture, agent types, and how to build your first autonomous agent without code.'
+};
+const DEMO_QUESTIONS_TEMPLATE = [
+  { id:'dq1', pinned:true,  status:'pending',  authorName:'Maria S.',  authorEmail:'maria@trailblazer.io', authorId:'u1', votes:7,  voters:[], answer:'',
+    text:'Can Agentforce agents trigger flows mid-conversation, or does the flow have to be invoked at the start of the action?' },
+  { id:'dq2', pinned:false, status:'answered', authorName:'James K.',  authorEmail:'james@company.com',    authorId:'u2', votes:4,  voters:[], answer:"Great question! Agent Actions are the atomic steps an agent can take — think of them as the agent's toolkit. Flows are one type of action the agent can call.",
+    text:"What's the difference between an Agent Action and a Flow in this context? They seem to overlap." },
+  { id:'dq3', pinned:false, status:'answered', authorName:'Anonymous', authorEmail:'',                     authorId:'u3', votes:2,  voters:[], answer:"Currently the limit is 50 topics per agent in the Spring '26 release.",
+    text:'Is there a limit on how many topics a single agent can handle?' },
+  { id:'dq4', pinned:false, status:'pending',  authorName:'Priya M.',  authorEmail:'priya@sf-partner.com', authorId:'u4', votes:3,  voters:[], answer:'',
+    text:'Do you need a specific Salesforce license to use Agentforce, or is it included with Enterprise?' },
+  { id:'dq5', pinned:false, status:'pending',  authorName:'Daniel R.', authorEmail:'',                     authorId:'u5', votes:1,  voters:[], answer:'',
+    text:'Can we use custom LLMs with Agentforce or is it locked to the Einstein models?' },
+];
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'TDX-';
+  for (let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+function addInstructor() {
+  const input = document.getElementById('new-instructor-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (!activeSessionCode) { showToast('Select a session first.'); return; }
+  const s = allSessions.find(x => x.id === activeSessionCode);
+  if (!s) return;
+  const instructors = s.instructors ? [...s.instructors] : (s.instructorNames ? s.instructorNames.split(',').map(n=>n.trim()).filter(Boolean) : []);
+  if (instructors.includes(name)) { showToast('Already added.'); return; }
+  instructors.push(name);
+  if (isDemoMode) {
+    s.instructors = instructors; s.instructorNames = instructors.join(', ');
+    renderInstructorList(instructors); showToast(name + ' added!'); input.value = ''; return;
+  }
+  db.collection('sessions').doc(activeSessionCode).update({ instructors, instructorNames: instructors.join(', ') }).then(() => {
+    s.instructors = instructors; s.instructorNames = instructors.join(', ');
+    renderInstructorList(instructors); showToast(name + ' added!'); input.value = '';
+  });
+}
+
+function removeInstructor(name) {
+  if (!activeSessionCode) return;
+  const s = allSessions.find(x => x.id === activeSessionCode);
+  if (!s) return;
+  const instructors = (s.instructors ? [...s.instructors] : (s.instructorNames ? s.instructorNames.split(',').map(n=>n.trim()).filter(Boolean) : [])).filter(n => n !== name);
+  if (isDemoMode) {
+    s.instructors = instructors; s.instructorNames = instructors.join(', ');
+    renderInstructorList(instructors); showToast(name + ' removed.'); return;
+  }
+  db.collection('sessions').doc(activeSessionCode).update({ instructors, instructorNames: instructors.join(', ') }).then(() => {
+    s.instructors = instructors; s.instructorNames = instructors.join(', ');
+    renderInstructorList(instructors); showToast(name + ' removed.');
+  });
+}
+
+function renderInstructorList(instructors) {
+  const el = document.getElementById('instructor-list');
+  if (!el) return;
+  if (!instructors || !instructors.length) {
+    el.innerHTML = '<div style="font-size:0.82rem;color:var(--text-light);text-align:center;padding:0.5rem 0">No instructors added yet</div>';
+    return;
+  }
+  el.innerHTML = instructors.map(name => `
+    <div class="instructor-chip">
+      <span class="instructor-chip-name">${esc(name)}</span>
+      <button class="instructor-chip-remove" onclick="removeInstructor('${esc(name).replace(/'/g,"\\'")}')">×</button>
+    </div>`).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+
+// Simple hash — not cryptographic, but prevents plain-text storage
+async function hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('tdxqa:' + pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function nameToId(name) {
+  return name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+window.addEventListener('load', () => {
+  // Only init Firebase if config has been filled in
+  const configReady = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+  if (configReady) {
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    } catch(e) { console.warn('Firebase init failed:', e); }
+  }
+  const savedName = sessionStorage.getItem('tdx_instructor_name');
+  const savedDemo = sessionStorage.getItem('tdx_is_demo');
+  if (savedName) {
+    currentInstructor = savedName;
+    if (savedDemo === 'true') isDemoMode = true;
+    showDashboard();
+  }
+});
+
+function switchMode(mode) {
+  document.getElementById('mode-signin').style.display = mode === 'signin' ? 'block' : 'none';
+  document.getElementById('mode-register').style.display = mode === 'register' ? 'block' : 'none';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('register-error').textContent = '';
+}
+
+async function instructorLogin() {
+  const name = document.getElementById('signin-name').value.trim();
+  const pin = document.getElementById('signin-pin').value;
+  const errEl = document.getElementById('login-error');
+  if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+  if (!pin) { errEl.textContent = 'Please enter your PIN.'; return; }
+  const id = nameToId(name);
+  try {
+    const doc = await db.collection('instructors').doc(id).get();
+    if (!doc.exists) { errEl.textContent = 'No account found. Create one below.'; return; }
+    const stored = doc.data();
+    const hash = await hashPin(pin);
+    if (hash !== stored.pinHash) { errEl.textContent = 'Incorrect PIN. Try again.'; return; }
+    currentInstructor = stored.displayName;
+    sessionStorage.setItem('tdx_instructor_name', currentInstructor);
+    showDashboard();
+  } catch(e) { errEl.textContent = 'Connection error. Please try again.'; }
+}
+
+async function instructorRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const pin = document.getElementById('reg-pin').value;
+  const pin2 = document.getElementById('reg-pin2').value;
+  const errEl = document.getElementById('register-error');
+  if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+  if (pin.length < 4) { errEl.textContent = 'PIN must be at least 4 characters.'; return; }
+  if (pin !== pin2) { errEl.textContent = 'PINs do not match.'; return; }
+  const id = nameToId(name);
+  try {
+    const existing = await db.collection('instructors').doc(id).get();
+    if (existing.exists) { errEl.textContent = 'An account with that name already exists. Sign in instead.'; return; }
+    const hash = await hashPin(pin);
+    await db.collection('instructors').doc(id).set({
+      displayName: name,
+      pinHash: hash,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    currentInstructor = name;
+    sessionStorage.setItem('tdx_instructor_name', currentInstructor);
+    showDashboard();
+  } catch(e) { errEl.textContent = 'Error creating account. Please try again.'; }
+}
+
+function instructorLogout() {
+  sessionStorage.removeItem('tdx_instructor_name');
+  sessionStorage.removeItem('tdx_is_demo');
+  currentInstructor = null;
+  isDemoMode = false;
+  studentViewOpen = false;
+  activeSessionCode = null;
+  allSessions = [];
+  allQuestions = [];
+  if (unsubQuestions) { unsubQuestions(); unsubQuestions = null; }
+  if (unsubSession) { unsubSession(); unsubSession = null; }
+  // reset UI
+  document.getElementById('student-demo-panel').style.display = 'none';
+  document.getElementById('student-view-btn').style.display = 'none';
+  document.getElementById('active-code').textContent = '—';
+  document.getElementById('session-dependent-sections').style.display = 'none';
+  document.getElementById('sessions-list').innerHTML = '';
+  document.getElementById('questions-list').innerHTML = '<div class="empty-state"><p style="font-size:0.95rem;">Select or create a session to get started.</p></div>';
+  document.getElementById('instructor-list').innerHTML = '<div style="font-size:0.82rem;color:var(--text-light);text-align:center;padding:0.5rem">No instructors added yet</div>';
+  document.getElementById('instructor-name-bar').textContent = '';
+  // reset stats
+  ['stat-total','stat-answered','stat-pending','stat-pinned','fc-all','fc-pinned','fc-pending','fc-answered'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '0';
+  });
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('signin-name').value = '';
+  document.getElementById('signin-pin').value = '';
+  switchMode('signin');
+}
+
+function enterDemoMode() {
+  isDemoMode = true;
+  currentInstructor = 'Alex Rivera (Demo)';
+  sessionStorage.setItem('tdx_instructor_name', currentInstructor);
+  sessionStorage.setItem('tdx_is_demo', 'true');
+  showDashboard();
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  // reset session state for fresh login
+  activeSessionCode = null;
+  allSessions = [];
+  allQuestions = [];
+  document.getElementById('active-code').textContent = '—';
+  document.getElementById('session-dependent-sections').style.display = 'none';
+  document.getElementById('questions-list').innerHTML = '<div class="empty-state"><p style="font-size:0.95rem;">Select or create a session to get started.</p></div>';
+  const nameEl = document.getElementById('instructor-name-bar');
+  if (nameEl) nameEl.textContent = currentInstructor || 'Instructor';
+  // show/hide demo UI
+  const demoBadge = document.getElementById('demo-badge');
+  const resetBtn = document.getElementById('reset-demo-btn');
+  if (isDemoMode) {
+    demoBadge.style.display = 'inline-flex';
+    resetBtn.style.display = 'inline-block';
+    document.getElementById('student-view-btn').style.display = 'inline-block';
+  } else {
+    demoBadge.style.display = 'none';
+    resetBtn.style.display = 'none';
+    document.getElementById('student-view-btn').style.display = 'none';
+  }
+  isDemoMode ? loadDemoSessions() : loadSessions();
+}
+
+function loadDemoSessions() {
+  allSessions = [DEMO_SESSION];
+  allQuestions = DEMO_QUESTIONS_TEMPLATE.map(q => ({...q, voters: [...q.voters]}));
+  activeSessionCode = DEMO_SESSION_CODE;
+  renderSessionsList();
+  renderQuestions();
+  updateStats();
+  fillSessionForm(DEMO_SESSION);
+  document.getElementById('active-code').textContent = DEMO_SESSION_CODE;
+  document.getElementById('session-dependent-sections').style.display = 'block';
+}
+
+function fillSessionForm(s) {
+  document.getElementById('sf-class').value = s.className || '';
+  document.getElementById('sf-session').value = s.sessionName || '';
+  document.getElementById('sf-room').value = s.room || '';
+  document.getElementById('sf-desc').value = s.description || '';
+  // date/time — convert display back to input format if possible
+  if (s.sessionDate) {
+    try {
+      const d = new Date(s.sessionDate);
+      if (!isNaN(d)) document.getElementById('sf-date').value = d.toISOString().split('T')[0];
+      else document.getElementById('sf-date').value = '';
+    } catch(e) { document.getElementById('sf-date').value = ''; }
+  } else { document.getElementById('sf-date').value = ''; }
+  document.getElementById('sf-time').value = s.sessionTime || '';
+  // instructors
+  const instructors = s.instructors || (s.instructorNames ? s.instructorNames.split(',').map(n=>n.trim()).filter(Boolean) : []);
+  renderInstructorList(instructors);
+}
+
+function loadSessions() {
+  const ownerId = nameToId(currentInstructor || '');
+  // Load sessions this instructor owns — no orderBy to avoid composite index requirement
+  db.collection('sessions')
+    .where('ownerId', '==', ownerId)
+    .onSnapshot(snap => {
+      const owned = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      // Sort by createdAt descending in JS
+      owned.sort((a, b) => {
+        const at = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : new Date(0);
+        const bt = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : new Date(0);
+        return bt - at;
+      });
+      // Also load sessions this instructor has manually joined
+      db.collection('instructors').doc(ownerId).get().then(doc => {
+        const joinedCodes = doc.exists && doc.data().joinedSessions ? doc.data().joinedSessions : [];
+        if (!joinedCodes.length) {
+          allSessions = owned;
+          renderSessionsList();
+          return;
+        }
+        Promise.all(joinedCodes.map(code => db.collection('sessions').doc(code).get()))
+          .then(docs => {
+            const joined = docs
+              .filter(d => d.exists && !owned.find(o => o.id === d.id))
+              .map(d => ({id: d.id, ...d.data()}));
+            allSessions = [...owned, ...joined];
+            renderSessionsList();
+          });
+      });
+    }, err => {
+      // If query fails (e.g. no index), show empty and log
+      console.error('loadSessions error:', err);
+      allSessions = [];
+      renderSessionsList();
+      showToast('Error loading sessions: ' + err.message);
+    });
+}
+
+function renderSessionsList() {
+  const el = document.getElementById('sessions-list');
+  if (!allSessions.length) {
+    el.innerHTML = `<div style="font-size:0.82rem;color:var(--text-light);text-align:center;padding:0.75rem;line-height:1.6;">
+      No sessions yet.<br>Create one or join an existing session with a code.
+    </div>`;
+    return;
+  }
+  el.innerHTML = allSessions.map(s => `
+    <button onclick="selectSession('${s.id}')"
+      style="padding:0.5rem 0.75rem;border-radius:8px;border:1.5px solid ${activeSessionCode===s.id?'var(--accent)':'var(--border)'};
+      background:${activeSessionCode===s.id?'var(--accent-light)':'white'};font-family:inherit;font-size:0.82rem;
+      color:${activeSessionCode===s.id?'var(--accent)':'var(--text-muted)'};cursor:pointer;text-align:left;width:100%;
+      font-weight:${activeSessionCode===s.id?'500':'400'}">
+      <div style="font-family:'DM Mono',monospace;font-size:0.75rem;letter-spacing:0.08em">${s.id}</div>
+      <div style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.sessionName||s.className||'Untitled'}</div>
+    </button>
+  `).join('');
+}
+
+function selectSession(code) {
+  activeSessionCode = code;
+  renderSessionsList();
+  document.getElementById('active-code').textContent = code;
+  // reveal session-dependent sections
+  document.getElementById('session-dependent-sections').style.display = 'block';
+  // load session info into form
+  const s = allSessions.find(x => x.id === code);
+  if (s) fillSessionForm(s);
+  // live questions
+  if (unsubQuestions) unsubQuestions();
+  unsubQuestions = db.collection('sessions').doc(code).collection('questions')
+    .orderBy('createdAt','desc')
+    .onSnapshot(snap => {
+      allQuestions = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderQuestions();
+      updateStats();
+    });
+}
+
+function openJoinSessionModal() {
+  document.getElementById('join-session-code').value = '';
+  document.getElementById('join-session-error').textContent = '';
+  document.getElementById('join-session-modal').classList.add('open');
+}
+function closeJoinSessionModal() {
+  document.getElementById('join-session-modal').classList.remove('open');
+}
+
+function instructorJoinSession() {
+  const raw = document.getElementById('join-session-code').value.trim().toUpperCase();
+  const code = raw.replace(/[^A-Z0-9-]/g, '');
+  if (!code) { document.getElementById('join-session-error').textContent = 'Please enter a session code.'; return; }
+  db.collection('sessions').doc(code).get().then(doc => {
+    if (!doc.exists) { document.getElementById('join-session-error').textContent = 'Session not found. Check the code.'; return; }
+    // Add to instructor's joined sessions list in Firestore
+    const ownerId = nameToId(currentInstructor || '');
+    db.collection('instructors').doc(ownerId).update({
+      joinedSessions: firebase.firestore.FieldValue.arrayUnion(code)
+    }).catch(() => {
+      // If field doesn't exist yet, set it
+      db.collection('instructors').doc(ownerId).update({
+        joinedSessions: [code]
+      });
+    });
+    const sessionData = {id: code, ...doc.data()};
+    if (!allSessions.find(s => s.id === code)) allSessions.unshift(sessionData);
+    renderSessionsList();
+    selectSession(code);
+    closeJoinSessionModal();
+    showToast('Joined session ' + code);
+  }).catch(e => {
+    document.getElementById('join-session-error').textContent = 'Error: ' + e.message;
+  });
+}
+
+function openCreateSessionModal() {
+  if (isDemoMode) { showToast('Exit demo mode to create real sessions.'); return; }
+  document.getElementById('new-sf-class').value = '';
+  document.getElementById('new-sf-session').value = '';
+  document.getElementById('new-sf-date').value = '';
+  document.getElementById('new-sf-time').value = '';
+  document.getElementById('new-sf-room').value = '';
+  document.getElementById('new-sf-desc').value = '';
+  document.getElementById('create-session-error').textContent = '';
+  document.getElementById('create-session-modal').classList.add('open');
+}
+function closeCreateSessionModal() {
+  document.getElementById('create-session-modal').classList.remove('open');
+}
+
+function confirmCreateSession() {
+  const sessionName = document.getElementById('new-sf-session').value.trim();
+  const className = document.getElementById('new-sf-class').value.trim();
+  if (!sessionName && !className) {
+    document.getElementById('create-session-error').textContent = 'Please enter at least a class name or session name.';
+    return;
+  }
+  const code = genCode();
+  const ownerId = nameToId(currentInstructor || '');
+  const dateVal = document.getElementById('new-sf-date').value;
+  const timeVal = document.getElementById('new-sf-time').value;
+  const btn = document.querySelector('#create-session-modal .save-btn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  db.collection('sessions').doc(code).set({
+    className,
+    sessionName,
+    instructorNames: currentInstructor || '',
+    instructors: currentInstructor ? [currentInstructor] : [],
+    sessionDate: dateVal ? new Date(dateVal).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '',
+    sessionTime: timeVal ? formatDisplayTime(timeVal) : '',
+    room: document.getElementById('new-sf-room').value.trim(),
+    description: document.getElementById('new-sf-desc').value.trim(),
+    ownerId,
+    ownerName: currentInstructor || '',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    btn.disabled = false; btn.textContent = 'Create session';
+    closeCreateSessionModal();
+    selectSession(code);
+    showToast('Session created: ' + code);
+  }).catch(e => {
+    btn.disabled = false; btn.textContent = 'Create session';
+    document.getElementById('create-session-error').textContent = 'Error: ' + e.message;
+  });
+}
+
+function saveSession() {
+  if (isDemoMode) { showToast('Session info updated! (demo — not saved to database)'); return; }
+  if (!activeSessionCode) { showToast('Select a session first.'); return; }
+  const dateVal = document.getElementById('sf-date').value;
+  const timeVal = document.getElementById('sf-time').value;
+  db.collection('sessions').doc(activeSessionCode).update({
+    className: document.getElementById('sf-class').value.trim(),
+    sessionName: document.getElementById('sf-session').value.trim(),
+    sessionDate: dateVal ? new Date(dateVal).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '',
+    sessionTime: timeVal ? formatDisplayTime(timeVal) : '',
+    room: document.getElementById('sf-room').value.trim(),
+    description: document.getElementById('sf-desc').value.trim()
+  }).then(() => showToast('Session info saved!'));
+}
+
+function formatDisplayTime(t) {
+  const [h,m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function copyCode() {
+  if (!activeSessionCode) return;
+  navigator.clipboard.writeText(activeSessionCode).then(()=>showToast('Code copied!'));
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-item').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQuestions();
+}
+
+function setSort(s, btn) {
+  currentSort = s;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQuestions();
+}
+
+function renderQuestions() {
+  let qs = [...allQuestions];
+  if (currentFilter==='pinned') qs = qs.filter(q=>q.pinned);
+  if (currentFilter==='answered') qs = qs.filter(q=>q.status==='answered');
+  if (currentFilter==='pending') qs = qs.filter(q=>q.status!=='answered');
+  qs.sort((a,b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    if (currentSort==='votes') return (b.votes||0)-(a.votes||0);
+    const at = a.createdAt?(a.createdAt.toDate?a.createdAt.toDate():new Date(a.createdAt)):new Date(0);
+    const bt = b.createdAt?(b.createdAt.toDate?b.createdAt.toDate():new Date(b.createdAt)):new Date(0);
+    return bt-at;
+  });
+  const list = document.getElementById('questions-list');
+  if (!qs.length) {
+    list.innerHTML = '<div class="empty-state"><p>No questions in this view.</p></div>';
+    return;
+  }
+  list.innerHTML = qs.map(q => {
+    // answers: support both old single `answer` string and new `answers` array
+    const answers = q.answers && q.answers.length ? q.answers : (q.answer ? [{ instructor: 'Instructor', text: q.answer, ts: null }] : []);
+    const answersHtml = answers.map((a, i) => `
+      <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:0.6rem 0.9rem;margin-bottom:0.4rem;position:relative;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.3rem;">
+          <span style="font-size:0.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;">${esc(a.instructor||'Instructor')}</span>
+          <button onclick="deleteAnswer('${q.id}',${i})" style="background:none;border:none;font-size:0.8rem;color:var(--text-light);cursor:pointer;padding:0 2px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-light)'">×</button>
+        </div>
+        <div style="font-size:0.88rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${linkify(esc(a.text))}</div>
+      </div>`).join('');
+    return `
+    <div class="q-card ${q.pinned?'pinned':''} ${q.status==='answered'?'answered':''}" id="qcard-${q.id}">
+      <div class="q-top">
+        <div>
+          <div class="q-author-row">
+            <span class="q-author">${esc(q.authorName||'Anonymous')}</span>
+            ${q.authorEmail ? `` : ''}
+            <span class="q-time">${formatTime(q.createdAt)}</span>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;">
+            ${q.pinned?'<span class="q-badge badge-pinned">Pinned</span>':''}
+            ${q.status==='answered'?'<span class="q-badge badge-answered">Answered</span>':'<span class="q-badge badge-pending">Pending</span>'}
+          </div>
+        </div>
+        <div class="q-votes">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          ${q.votes||0}
+        </div>
+      </div>
+      <div class="q-text">${esc(q.text)}</div>
+      ${answersHtml ? `<div style="margin-bottom:0.75rem;">${answersHtml}</div>` : ''}
+      <div class="q-answer-area">
+        <div class="answer-label">${answers.length ? 'Add another answer' : 'Answer'}</div>
+        <textarea class="answer-box" id="ans-${q.id}" placeholder="Type your answer here... (Shift+Enter for new line, paste links freely)"></textarea>
+      </div>
+      <div class="q-actions">
+        <button class="action-btn btn-answer" onclick="saveAnswer('${q.id}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Save answer
+        </button>
+        <button class="action-btn btn-pin" onclick="togglePin('${q.id}')">
+          📌 ${q.pinned?'Unpin':'Pin'}
+        </button>
+        ${q.status!=='answered'
+          ? `<button class="action-btn btn-done" onclick="setStatus('${q.id}','answered')">✅ Mark answered</button>`
+          : `<button class="action-btn btn-pending" onclick="setStatus('${q.id}','pending')">⏳ Mark pending</button>`
+        }
+        <button class="action-btn btn-delete" onclick="openDelete('${q.id}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Delete
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function linkify(text) {
+  return text.replace(/(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline;word-break:break-all;">$1</a>');
+}
+
+function saveAnswer(id) {
+  const text = document.getElementById('ans-'+id).value;
+  if (!text.trim()) return;
+  const q = allQuestions.find(x=>x.id===id);
+  if (!q) return;
+  const newAnswer = { instructor: currentInstructor || 'Instructor', text: text, ts: new Date().toISOString() };
+  const answers = q.answers ? [...q.answers] : (q.answer ? [{ instructor: 'Instructor', text: q.answer, ts: null }] : []);
+  answers.push(newAnswer);
+  if (isDemoMode) {
+    q.answers = answers; q.answer = ''; q.status = 'answered';
+    renderQuestions(); updateStats();
+    showToast('Answer saved!');
+    return;
+  }
+  db.collection('sessions').doc(activeSessionCode).collection('questions').doc(id).update({
+    answers, answer: '', status: 'answered'
+  }).then(() => showToast('Answer saved!'));
+}
+
+function deleteAnswer(qId, index) {
+  const q = allQuestions.find(x=>x.id===qId);
+  if (!q) return;
+  const answers = q.answers ? [...q.answers] : [];
+  answers.splice(index, 1);
+  const status = answers.length ? 'answered' : 'pending';
+  if (isDemoMode) {
+    q.answers = answers; q.status = status;
+    renderQuestions(); updateStats();
+    showToast('Answer removed.');
+    return;
+  }
+  db.collection('sessions').doc(activeSessionCode).collection('questions').doc(qId).update({
+    answers, status
+  }).then(() => showToast('Answer removed.'));
+}
+
+function togglePin(id) {
+  const q = allQuestions.find(x=>x.id===id);
+  if (!q) return;
+  if (isDemoMode) {
+    q.pinned = !q.pinned;
+    const msg = q.pinned ? 'Question pinned!' : 'Unpinned.';
+    renderQuestions(); updateStats(); showToast(msg);
+    return;
+  }
+  db.collection('sessions').doc(activeSessionCode).collection('questions').doc(id).update({ pinned: !q.pinned })
+    .then(() => showToast(q.pinned ? 'Unpinned.' : 'Question pinned!'));
+}
+
+function setStatus(id, status) {
+  if (isDemoMode) {
+    const q = allQuestions.find(x=>x.id===id);
+    if (q) q.status = status;
+    renderQuestions(); updateStats();
+    showToast(status==='answered' ? 'Marked as answered.' : 'Marked as pending.');
+    return;
+  }
+  db.collection('sessions').doc(activeSessionCode).collection('questions').doc(id).update({ status })
+    .then(() => showToast(status==='answered' ? 'Marked as answered.' : 'Marked as pending.'));
+}
+
+function openDelete(id) { deleteTargetId = id; document.getElementById('delete-modal').classList.add('open'); }
+function closeDelete() { document.getElementById('delete-modal').classList.remove('open'); deleteTargetId = null; }
+function confirmDelete() {
+  if (!deleteTargetId) return;
+  if (isDemoMode) {
+    allQuestions = allQuestions.filter(x=>x.id!==deleteTargetId);
+    renderQuestions(); updateStats();
+    showToast('Question deleted.'); closeDelete();
+    return;
+  }
+  db.collection('sessions').doc(activeSessionCode).collection('questions').doc(deleteTargetId).delete()
+    .then(() => { showToast('Question deleted.'); closeDelete(); });
+}
+
+function updateStats() {
+  const qs = allQuestions;
+  document.getElementById('stat-total').textContent = qs.length;
+  document.getElementById('stat-answered').textContent = qs.filter(q=>q.status==='answered').length;
+  document.getElementById('stat-pending').textContent = qs.filter(q=>q.status!=='answered').length;
+  document.getElementById('stat-pinned').textContent = qs.filter(q=>q.pinned).length;
+  document.getElementById('fc-all').textContent = qs.length;
+  document.getElementById('fc-pinned').textContent = qs.filter(q=>q.pinned).length;
+  document.getElementById('fc-pending').textContent = qs.filter(q=>q.status!=='answered').length;
+  document.getElementById('fc-answered').textContent = qs.filter(q=>q.status==='answered').length;
+  // keep student demo view in sync
+  if (studentViewOpen) sdemoRender();
+}
+
+// ── STUDENT DEMO VIEW ──────────────────────────
+let sdemoFilter = 'all';
+let sdemoUserId = 'demo-student-' + Math.random().toString(36).slice(2,8);
+let sdemoEditingId = null;
+let studentViewOpen = false;
+
+function toggleStudentView() {
+  studentViewOpen = !studentViewOpen;
+  const panel = document.getElementById('student-demo-panel');
+  const btn = document.getElementById('student-view-btn');
+  panel.style.display = studentViewOpen ? 'block' : 'none';
+  btn.style.background = studentViewOpen ? '#f3e8ff' : 'none';
+  if (studentViewOpen) sdemoRender();
+}
+
+function sdemoSetFilter(f, btn) {
+  sdemoFilter = f;
+  document.querySelectorAll('.sdemo-filter').forEach(b => {
+    b.style.background = '#fff';
+    b.style.borderColor = '#e2ddd6';
+    b.style.color = '#7a7570';
+  });
+  btn.style.background = '#e8f2fc';
+  btn.style.borderColor = '#0070d2';
+  btn.style.color = '#0070d2';
+  sdemoRender();
+}
+
+function sdemoSubmit() {
+  const text = document.getElementById('sdemo-q-text').value.trim();
+  if (!text) return;
+  const name = document.getElementById('sdemo-name').value.trim() || 'Demo Student';
+  const newQ = {
+    id: 'sdemo-' + Date.now(),
+    text,
+    authorName: name,
+    authorEmail: '',
+    authorId: sdemoUserId,
+    status: 'pending',
+    pinned: false,
+    votes: 0,
+    voters: [],
+    answer: '',
+    createdAt: new Date()
+  };
+  allQuestions.unshift(newQ);
+  document.getElementById('sdemo-q-text').value = '';
+  sdemoRender();
+  // also refresh instructor view
+  renderQuestions();
+  updateStats();
+  showToast('Student question submitted!');
+}
+
+function sdemoToggleUpvote(id) {
+  const q = allQuestions.find(x => x.id === id);
+  if (!q) return;
+  if ((q.voters||[]).includes(sdemoUserId)) {
+    q.votes = Math.max(0, (q.votes||0) - 1);
+    q.voters = q.voters.filter(v => v !== sdemoUserId);
+  } else {
+    q.votes = (q.votes||0) + 1;
+    q.voters = [...(q.voters||[]), sdemoUserId];
+  }
+  sdemoRender();
+  renderQuestions();
+}
+
+function sdemoOpenEdit(id) {
+  const q = allQuestions.find(x => x.id === id);
+  if (!q) return;
+  sdemoEditingId = id;
+  // reuse instructor edit modal
+  document.getElementById('edit-text') ? null : null;
+  // inline edit — replace text with textarea
+  const textEl = document.getElementById('sdemo-text-' + id);
+  if (!textEl) return;
+  const current = q.text;
+  textEl.innerHTML = `<textarea id="sdemo-edit-ta-${id}" style="width:100%;border:1.5px solid #0070d2;border-radius:6px;padding:.5rem .7rem;font-family:inherit;font-size:.88rem;resize:vertical;outline:none;background:#fff;">${esc(current)}</textarea>
+  <div style="display:flex;gap:.4rem;margin-top:.4rem;justify-content:flex-end;">
+    <button onclick="sdemoCancelEdit('${id}','${esc(current)}')" style="padding:3px 10px;border:1.5px solid #e2ddd6;border-radius:6px;font-family:inherit;font-size:.78rem;cursor:pointer;background:none;">Cancel</button>
+    <button onclick="sdemoSaveEdit('${id}')" style="padding:3px 10px;background:#0070d2;color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:.78rem;cursor:pointer;">Save</button>
+  </div>`;
+}
+
+function sdemoSaveEdit(id) {
+  const ta = document.getElementById('sdemo-edit-ta-' + id);
+  if (!ta) return;
+  const text = ta.value.trim();
+  if (!text) return;
+  const q = allQuestions.find(x => x.id === id);
+  if (q) q.text = text;
+  sdemoRender();
+  renderQuestions();
+}
+
+function sdemoCancelEdit(id, original) {
+  sdemoRender();
+}
+
+function sdemoRender() {
+  let qs = [...allQuestions];
+  if (sdemoFilter === 'pinned') qs = qs.filter(q => q.pinned);
+  if (sdemoFilter === 'answered') qs = qs.filter(q => q.status === 'answered');
+  if (sdemoFilter === 'unanswered') qs = qs.filter(q => q.status !== 'answered');
+  // pinned always first
+  qs.sort((a,b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    const at = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : new Date(0);
+    const bt = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : new Date(0);
+    return bt - at;
+  });
+
+  // update stats
+  document.getElementById('sdemo-stat-total').textContent = allQuestions.length;
+  document.getElementById('sdemo-stat-ans').textContent = allQuestions.filter(q=>q.status==='answered').length;
+  document.getElementById('sdemo-stat-pen').textContent = allQuestions.filter(q=>q.status!=='answered').length;
+
+  const container = document.getElementById('sdemo-questions');
+  if (!qs.length) {
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:#b0aba4;font-size:.88rem;">No questions here yet.</div>';
+    return;
+  }
+
+  container.innerHTML = qs.map(q => {
+    const mine = q.authorId === sdemoUserId;
+    const voted = (q.voters||[]).includes(sdemoUserId);
+    return `
+    <div style="background:#fff;border:1px solid ${q.pinned?'#6a0dad':'#e2ddd6'};border-radius:10px;padding:.85rem 1rem;${q.pinned?'background:#faf5ff;':''}" >
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.4rem;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:.75rem;font-weight:500;color:#7a7570;">${esc(q.authorName||'Anonymous')}</span>
+          ${q.pinned ? '<span style="font-size:.65rem;font-weight:500;padding:2px 6px;border-radius:20px;background:#f3e8ff;color:#6a0dad;">Pinned</span>' : ''}
+          ${q.status==='answered' ? '<span style="font-size:.65rem;font-weight:500;padding:2px 6px;border-radius:20px;background:#e8f5e9;color:#2e7d32;">Answered</span>' : '<span style="font-size:.65rem;font-weight:500;padding:2px 6px;border-radius:20px;background:#fff3e0;color:#e65100;">Pending</span>'}
+        </div>
+        ${mine ? `<button onclick="sdemoOpenEdit('${q.id}')" style="font-size:.72rem;color:#b0aba4;background:none;border:none;cursor:pointer;font-family:inherit;padding:2px 6px;border-radius:4px;">Edit</button>` : ''}
+      </div>
+      <div id="sdemo-text-${q.id}" style="font-size:.88rem;line-height:1.55;margin-bottom:.45rem;">${esc(q.text)}</div>
+      ${(() => {
+        const answers = q.answers && q.answers.length ? q.answers : (q.answer ? [{instructor:'Instructor',text:q.answer}] : []);
+        return answers.map(a => `
+          <div style="background:#e8f2fc;border-left:3px solid #0070d2;border-radius:0 6px 6px 0;padding:.5rem .75rem;margin-top:.4rem;">
+            <div style="font-size:.65rem;font-weight:600;color:#0070d2;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem;">${esc(a.instructor||'Instructor')}</div>
+            <div style="font-size:.82rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${linkify(esc(a.text))}</div>
+          </div>`).join('');
+      })()}
+      <div style="margin-top:.45rem;">
+        <button onclick="sdemoToggleUpvote('${q.id}')" style="display:flex;align-items:center;gap:4px;padding:3px 9px;border:1.5px solid ${voted?'#0070d2':'#e2ddd6'};border-radius:20px;background:${voted?'#e8f2fc':'none'};font-family:inherit;font-size:.75rem;color:${voted?'#0070d2':'#7a7570'};cursor:pointer;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="${voted?'currentColor':'none'}" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          ${q.votes||0}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// patch resetDemo to also reset student view state and re-render if open
+// patch resetDemo to also reset student view state and re-render if open
+function resetDemo() {
+  allQuestions = DEMO_QUESTIONS_TEMPLATE.map(q => ({...q, voters: [...q.voters]}));
+  allSessions = [DEMO_SESSION];
+  activeSessionCode = DEMO_SESSION_CODE;
+  sdemoUserId = 'demo-student-' + Math.random().toString(36).slice(2,8);
+  renderSessionsList();
+  renderQuestions();
+  updateStats();
+  fillSessionForm(DEMO_SESSION);
+  document.getElementById('active-code').textContent = DEMO_SESSION_CODE;
+  if (studentViewOpen) sdemoRender();
+  showToast('Demo data reset!');
+}
+// ── END STUDENT DEMO VIEW ───────────────────────
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('signin-pin').addEventListener('keydown', e => { if (e.key==='Enter') instructorLogin(); });
+  document.getElementById('reg-pin2').addEventListener('keydown', e => { if (e.key==='Enter') instructorRegister(); });
+});
+</script>
+</body>
+</html>

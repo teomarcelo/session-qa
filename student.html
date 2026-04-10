@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TDX Q&A — Student</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/firebase/firebase-app-compat.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase/firebase-firestore-compat.js" defer></script>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e2ddd6;
+    --text: #1a1814;
+    --text-muted: #7a7570;
+    --text-light: #b0aba4;
+    --accent: #0070d2;
+    --accent-light: #e8f2fc;
+    --accent-hover: #005fb2;
+    --success: #2e7d32;
+    --success-light: #e8f5e9;
+    --warn: #e65100;
+    --warn-light: #fff3e0;
+    --pin: #6a0dad;
+    --pin-light: #f3e8ff;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    --shadow-hover: 0 2px 8px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── JOIN SCREEN ── */
+  #join-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: var(--bg);
+  }
+  .join-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 3rem 2.5rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .join-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 2rem;
+  }
+  .join-logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .join-logo-mark svg { color: white; }
+  .join-logo-text { font-weight: 600; font-size: 1.1rem; letter-spacing: -0.02em; }
+  .join-title { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+  .join-sub { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem; line-height: 1.5; }
+  .field { margin-bottom: 1.2rem; }
+  .field label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 1rem;
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+    background: white;
+  }
+  .field .hint { font-size: 0.8rem; color: var(--text-light); margin-top: 0.3rem; }
+  .code-input {
+    font-family: 'DM Mono', monospace !important;
+    font-size: 1.4rem !important;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .btn-primary {
+    width: 100%;
+    padding: 0.85rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 0.5rem;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:active { transform: scale(0.99); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { color: var(--warn); font-size: 0.88rem; margin-top: 0.75rem; text-align: center; }
+
+  /* ── MAIN APP ── */
+  #app-screen { display: none; min-height: 100vh; }
+
+  .top-bar {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .top-bar-left { display: flex; align-items: center; gap: 12px; }
+  .top-bar-logo { width: 28px; height: 28px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .top-bar-session { font-size: 0.95rem; font-weight: 500; }
+  .top-bar-code { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--text-muted); background: var(--surface2); padding: 2px 8px; border-radius: 4px; }
+  .top-bar-right { display: flex; align-items: center; gap: 8px; }
+  .leave-btn { font-size: 0.85rem; color: var(--text-muted); background: none; border: 1px solid var(--border); padding: 0.3rem 0.8rem; border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .leave-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .app-layout { display: grid; grid-template-columns: 1fr 320px; min-height: calc(100vh - 56px); }
+  @media (max-width: 768px) { .app-layout { grid-template-columns: 1fr; } }
+
+  .main-col { padding: 1.5rem; border-right: 1px solid var(--border); }
+
+  /* Session info card */
+  .session-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1.5rem;
+  }
+  .session-card-title { grid-column: 1 / -1; font-weight: 600; font-size: 1.1rem; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+  .session-card-desc { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+  .session-meta { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
+  .session-meta svg { flex-shrink: 0; }
+
+  /* Ask box */
+  .ask-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .ask-box-header { font-weight: 500; font-size: 0.95rem; margin-bottom: 1rem; }
+  .ask-box textarea {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 90px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ask-box textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); background: white; }
+  .ask-box-meta { display: flex; gap: 0.75rem; margin-top: 0.75rem; }
+  .ask-box-meta input {
+    flex: 1;
+    padding: 0.6rem 0.8rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.88rem;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .ask-box-meta input:focus { border-color: var(--accent); background: white; }
+  .ask-footer { display: flex; justify-content: flex-end; margin-top: 0.75rem; }
+  .btn-submit {
+    padding: 0.6rem 1.4rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-submit:hover { background: var(--accent-hover); }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Questions list */
+  .section-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label span { background: var(--surface2); padding: 1px 8px; border-radius: 20px; font-size: 0.75rem; }
+
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    transition: box-shadow 0.15s, transform 0.15s;
+    position: relative;
+  }
+  .q-card:hover { box-shadow: var(--shadow-hover); }
+  .q-card.pinned {
+    border-color: var(--pin);
+    background: var(--pin-light);
+  }
+  .q-card.answered {
+    border-color: var(--success);
+    opacity: 0.85;
+  }
+
+  .q-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+  .q-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .q-author { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); }
+  .q-time { font-size: 0.78rem; color: var(--text-light); }
+  .q-badge {
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+  }
+  .badge-answered { background: var(--success-light); color: var(--success); }
+  .badge-pending { background: var(--warn-light); color: var(--warn); }
+  .badge-pinned { background: var(--pin-light); color: var(--pin); }
+
+  .q-text { font-size: 0.95rem; line-height: 1.55; color: var(--text); margin-bottom: 0.5rem; }
+  .q-answer {
+    background: var(--accent-light);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.5;
+    margin-top: 0.75rem;
+  }
+  .q-answer-label { font-size: 0.75rem; font-weight: 500; color: var(--accent); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .q-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; }
+  .upvote-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    background: none;
+    font-family: inherit;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .upvote-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .upvote-btn.upvoted { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .q-edit-btn {
+    font-size: 0.8rem; color: var(--text-light); background: none; border: none; cursor: pointer; font-family: inherit; padding: 4px 8px; border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .q-edit-btn:hover { color: var(--accent); }
+
+  /* Sidebar */
+  .side-col { padding: 1.5rem; background: var(--surface2); }
+  .side-section { margin-bottom: 2rem; }
+  .side-title { font-size: 0.78rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .stat-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; text-align: center; }
+  .stat-num { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.03em; }
+  .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+  .filter-btns { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .filter-btn {
+    padding: 5px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    background: white;
+    font-family: inherit;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* Edit modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .modal-title { font-weight: 600; font-size: 1rem; margin-bottom: 1rem; }
+  .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+  .btn-ghost {
+    padding: 0.55rem 1.1rem; background: none; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer;
+    transition: all 0.15s; color: var(--text);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+  .empty-state svg { margin-bottom: 1rem; opacity: 0.3; }
+  .empty-state p { font-size: 0.95rem; }
+
+  .toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    background: var(--text); color: white;
+    padding: 0.7rem 1.2rem; border-radius: var(--radius-sm);
+    font-size: 0.88rem; z-index: 300;
+    transform: translateY(100px); opacity: 0;
+    transition: transform 0.3s, opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- JOIN SCREEN -->
+<div id="join-screen">
+  <div class="join-card">
+    <div class="join-logo">
+      <div class="join-logo-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <span class="join-logo-text">TDX Q&amp;A</span>
+    </div>
+    <h1 class="join-title">Join your session</h1>
+    <p class="join-sub">Enter the session code your instructor shared to access the Q&amp;A board.</p>
+    <div class="field">
+      <label>Session code</label>
+      <input id="code-input" class="code-input" type="text" placeholder="TDX-XXXX" maxlength="8" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Your name <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-light)">(optional)</span></label>
+      <input id="name-input" type="text" placeholder="e.g. Alex">
+    </div>
+    <button class="btn-primary" id="join-btn" onclick="joinSession()">Join session</button>
+    <p class="error-msg" id="join-error"></p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app-screen">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="top-bar-logo">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <span class="top-bar-session" id="bar-session-name">Session</span>
+      <span class="top-bar-code" id="bar-code"></span>
+    </div>
+    <div class="top-bar-right">
+      <button class="leave-btn" onclick="leaveSession()">Leave</button>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <!-- Main column -->
+    <div class="main-col">
+      <!-- Session info -->
+      <div class="session-card" id="session-info-card">
+        <div class="session-card-title" id="si-title">Loading...</div>
+        <div class="session-meta" id="si-instructor">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="si-instructor-text">—</span>
+        </div>
+        <div class="session-meta" id="si-datetime">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="si-datetime-text">—</span>
+        </div>
+        <div class="session-meta">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span id="si-room-text">—</span>
+        </div>
+        <div class="session-card-desc" id="si-desc"></div>
+      </div>
+
+      <!-- Ask box -->
+      <div class="ask-box">
+        <div class="ask-box-header">Ask a question</div>
+        <textarea id="q-text" placeholder="What's on your mind? Ask anything about the session..." rows="3"></textarea>
+        <div class="ask-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+          <label id="anon-toggle-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:0.85rem;color:var(--text-muted);">
+            <div id="anon-toggle" onclick="toggleAnon()" style="width:36px;height:20px;border-radius:20px;background:var(--border);position:relative;transition:background 0.2s;flex-shrink:0;cursor:pointer;">
+              <div id="anon-knob" style="width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
+            </div>
+            <span id="anon-label-text">Post as <strong id="anon-name-preview" style="color:var(--text);">Anonymous</strong></span>
+          </label>
+          <button class="btn-submit" id="submit-btn" onclick="submitQuestion()">Submit question</button>
+        </div>
+      </div>
+
+      <!-- Questions -->
+      <div class="section-label">Questions <span id="q-count">0</span></div>
+      <div id="filter-bar" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" data-filter="pinned" onclick="setFilter('pinned',this)">Pinned</button>
+        <button class="filter-btn" data-filter="unanswered" onclick="setFilter('unanswered',this)">Unanswered</button>
+        <button class="filter-btn" data-filter="answered" onclick="setFilter('answered',this)">Answered</button>
+      </div>
+      <div id="questions-list">
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <p>No questions yet. Be the first to ask!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="side-col">
+      <div class="side-section">
+        <div class="side-title">Stats</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-num" id="stat-total">0</div>
+            <div class="stat-label">Total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="stat-answered" style="color:var(--success)">0</div>
+            <div class="stat-label">Answered</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="stat-pending" style="color:var(--warn)">0</div>
+            <div class="stat-label">Pending</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="stat-pinned" style="color:var(--pin)">0</div>
+            <div class="stat-label">Pinned</div>
+          </div>
+        </div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">Sort by</div>
+        <div class="filter-btns">
+          <button class="filter-btn active" onclick="setSort('recent',this)">Most recent</button>
+          <button class="filter-btn" onclick="setSort('votes',this)">Most votes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">Edit your question</div>
+    <textarea id="edit-text" style="width:100%;min-height:100px;padding:0.75rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.95rem;resize:vertical;outline:none;"></textarea>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeEdit()">Cancel</button>
+      <button class="btn-submit" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  FIREBASE CONFIG
+// ══════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCM_fXpm_F2a4-h04m18UPy472UmDaa8OE",
+  authDomain: "tdx-qa.firebaseapp.com",
+  projectId: "tdx-qa",
+  storageBucket: "tdx-qa.firebasestorage.app",
+  messagingSenderId: "964102376485",
+  appId: "1:964102376485:web:bfa3d741284a1ef20f03cc"
+};
+// ══════════════════════════════════════════════
+
+let db, sessionCode, userName, userEmail, userId, currentSession;
+let allQuestions = [], currentFilter = 'all', currentSort = 'recent';
+let editingId = null, unsubSession, unsubQuestions;
+
+function genId() { return Math.random().toString(36).slice(2,10); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+
+window.addEventListener('load', () => {
+  const configReady = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+  if (configReady) {
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    } catch(e) { console.warn('Firebase init failed:', e); }
+  }
+  userId = sessionStorage.getItem('tdx_uid') || genId();
+  sessionStorage.setItem('tdx_uid', userId);
+  const stored = localStorage.getItem('tdx_name');
+  if (stored) document.getElementById('name-input').value = stored;
+});
+
+function joinSession() {
+  const raw = document.getElementById('code-input').value.trim().toUpperCase();
+  const code = raw.replace(/[^A-Z0-9-]/g,'');
+  if (!code) { showJoinError('Please enter a session code.'); return; }
+  userName = document.getElementById('name-input').value.trim() || 'Anonymous';
+  userEmail = '';
+  if (userName !== 'Anonymous') localStorage.setItem('tdx_name', userName);
+
+  document.getElementById('join-btn').disabled = true;
+  document.getElementById('join-btn').textContent = 'Joining...';
+
+  db.collection('sessions').doc(code).get().then(doc => {
+    if (!doc.exists) { showJoinError('Session not found. Check the code and try again.'); document.getElementById('join-btn').disabled = false; document.getElementById('join-btn').textContent = 'Join session'; return; }
+    sessionCode = code;
+    currentSession = doc.data();
+    enterApp();
+  }).catch(() => { showJoinError('Connection error. Please try again.'); document.getElementById('join-btn').disabled = false; document.getElementById('join-btn').textContent = 'Join session'; });
+}
+
+function showJoinError(msg) { document.getElementById('join-error').textContent = msg; }
+
+function enterApp() {
+  document.getElementById('join-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  // set anonymous toggle — default anonymous if no name given, named if name given
+  postAnonymously = (userName === 'Anonymous' || !userName);
+  updateAnonToggle();
+  renderSessionInfo(currentSession);
+  document.getElementById('bar-session-name').textContent = currentSession.sessionName || currentSession.className || 'Session';
+  document.getElementById('bar-code').textContent = sessionCode;
+
+  // live session info
+  unsubSession = db.collection('sessions').doc(sessionCode).onSnapshot(snap => {
+    if (snap.exists) { currentSession = snap.data(); renderSessionInfo(snap.data()); }
+  });
+  // live questions
+  unsubQuestions = db.collection('sessions').doc(sessionCode).collection('questions')
+    .orderBy('createdAt','desc')
+    .onSnapshot(snap => {
+      allQuestions = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderQuestions();
+      updateStats();
+    });
+}
+
+let postAnonymously = true;
+
+function toggleAnon() {
+  postAnonymously = !postAnonymously;
+  updateAnonToggle();
+}
+
+function updateAnonToggle() {
+  const toggle = document.getElementById('anon-toggle');
+  const knob = document.getElementById('anon-knob');
+  const preview = document.getElementById('anon-name-preview');
+  if (postAnonymously) {
+    toggle.style.background = 'var(--border)';
+    knob.style.transform = 'translateX(0)';
+    preview.textContent = 'Anonymous';
+    preview.style.color = 'var(--text-muted)';
+  } else {
+    toggle.style.background = 'var(--accent)';
+    knob.style.transform = 'translateX(16px)';
+    preview.textContent = userName && userName !== 'Anonymous' ? userName : 'Anonymous';
+    preview.style.color = 'var(--accent)';
+  }
+}
+
+function leaveSession() {
+  if (unsubSession) unsubSession();
+  if (unsubQuestions) unsubQuestions();
+  postAnonymously = true;
+  document.getElementById('join-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('join-error').textContent = '';
+  document.getElementById('join-btn').disabled = false;
+  document.getElementById('join-btn').textContent = 'Join session';
+}
+
+function renderSessionInfo(s) {
+  document.getElementById('si-title').textContent = s.sessionName || s.className || '';
+  document.getElementById('si-instructor-text').textContent = s.instructorNames || '—';
+  document.getElementById('si-datetime-text').textContent = [s.sessionDate, s.sessionTime].filter(Boolean).join(' · ') || '—';
+  document.getElementById('si-room-text').textContent = s.room || '—';
+  const desc = document.getElementById('si-desc');
+  desc.textContent = s.description || '';
+  desc.style.display = s.description ? '' : 'none';
+}
+
+function submitQuestion() {
+  const text = document.getElementById('q-text').value.trim();
+  if (!text) return;
+  const displayName = postAnonymously ? 'Anonymous' : (userName && userName !== 'Anonymous' ? userName : 'Anonymous');
+  document.getElementById('submit-btn').disabled = true;
+  db.collection('sessions').doc(sessionCode).collection('questions').add({
+    text,
+    authorName: displayName || 'Anonymous',
+    authorEmail: '',
+    authorId: userId,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    status: 'pending',
+    pinned: false,
+    votes: 0,
+    voters: [],
+    answer: ''
+  }).then(docRef => {
+    // store this question ID so only this student can edit it
+    const myQs = JSON.parse(sessionStorage.getItem('tdx_my_questions') || '[]');
+    myQs.push(docRef.id);
+    sessionStorage.setItem('tdx_my_questions', JSON.stringify(myQs));
+    document.getElementById('q-text').value = '';
+    document.getElementById('submit-btn').disabled = false;
+    showToast('Question submitted!');
+  }).catch(() => { document.getElementById('submit-btn').disabled = false; });
+}
+
+function isMyQuestion(id) {
+  const myQs = JSON.parse(sessionStorage.getItem('tdx_my_questions') || '[]');
+  return myQs.includes(id);
+}
+
+function toggleUpvote(id) {
+  const q = allQuestions.find(x => x.id === id);
+  if (!q) return;
+  const voters = q.voters || [];
+  const ref = db.collection('sessions').doc(sessionCode).collection('questions').doc(id);
+  if (voters.includes(userId)) {
+    ref.update({ votes: firebase.firestore.FieldValue.increment(-1), voters: firebase.firestore.FieldValue.arrayRemove(userId) });
+  } else {
+    ref.update({ votes: firebase.firestore.FieldValue.increment(1), voters: firebase.firestore.FieldValue.arrayUnion(userId) });
+  }
+}
+
+function openEdit(id) {
+  const q = allQuestions.find(x => x.id === id);
+  if (!q) return;
+  editingId = id;
+  document.getElementById('edit-text').value = q.text;
+  document.getElementById('edit-modal').classList.add('open');
+}
+function closeEdit() { document.getElementById('edit-modal').classList.remove('open'); editingId = null; }
+function saveEdit() {
+  const text = document.getElementById('edit-text').value.trim();
+  if (!text || !editingId) return;
+  if (!isMyQuestion(editingId)) { showToast('You can only edit your own questions.'); closeEdit(); return; }
+  db.collection('sessions').doc(sessionCode).collection('questions').doc(editingId).update({ text }).then(() => { closeEdit(); showToast('Question updated.'); });
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQuestions();
+}
+
+function setSort(s, btn) {
+  currentSort = s;
+  document.querySelectorAll('#app-screen .side-col .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQuestions();
+}
+
+function renderQuestions() {
+  let qs = [...allQuestions];
+  if (currentFilter === 'pinned') qs = qs.filter(q => q.pinned);
+  if (currentFilter === 'answered') qs = qs.filter(q => q.status === 'answered');
+  if (currentFilter === 'unanswered') qs = qs.filter(q => q.status !== 'answered');
+  // sort pinned first always
+  qs.sort((a,b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    if (currentSort === 'votes') return (b.votes||0) - (a.votes||0);
+    const at = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : new Date(0);
+    const bt = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : new Date(0);
+    return bt - at;
+  });
+  document.getElementById('q-count').textContent = qs.length;
+  const list = document.getElementById('questions-list');
+  if (!qs.length) {
+    list.innerHTML = '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>No questions here yet.</p></div>';
+    return;
+  }
+  list.innerHTML = qs.map(q => {
+    const mine = isMyQuestion(q.id);
+    const voted = (q.voters||[]).includes(userId);
+    const badges = [];
+    if (q.pinned) badges.push('<span class="q-badge badge-pinned">Pinned</span>');
+    if (q.status === 'answered') badges.push('<span class="q-badge badge-answered">Answered</span>');
+    else badges.push('<span class="q-badge badge-pending">Pending</span>');
+    return `
+    <div class="q-card ${q.pinned?'pinned':''} ${q.status==='answered'?'answered':''}">
+      <div class="q-card-header">
+        <div class="q-meta">
+          <span class="q-author">${esc(q.authorName||'Anonymous')}</span>
+          <span class="q-time">${formatTime(q.createdAt)}</span>
+          ${badges.join('')}
+        </div>
+        ${mine ? `<button class="q-edit-btn" onclick="openEdit('${q.id}')">Edit</button>` : ''}
+      </div>
+      <div class="q-text">${esc(q.text)}</div>
+      ${(() => {
+        const answers = q.answers && q.answers.length ? q.answers : (q.answer ? [{ instructor: 'Instructor', text: q.answer }] : []);
+        if (!answers.length) return '';
+        return answers.map(a => `
+          <div class="q-answer">
+            <div class="q-answer-label">${esc(a.instructor||'Instructor')}</div>
+            <div style="white-space:pre-wrap;word-break:break-word;">${linkify(esc(a.text))}</div>
+          </div>`).join('');
+      })()}
+      <div class="q-footer">
+        <button class="upvote-btn ${voted?'upvoted':''}" onclick="toggleUpvote('${q.id}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="${voted?'currentColor':'none'}" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          ${q.votes||0}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const qs = allQuestions;
+  document.getElementById('stat-total').textContent = qs.length;
+  document.getElementById('stat-answered').textContent = qs.filter(q=>q.status==='answered').length;
+  document.getElementById('stat-pending').textContent = qs.filter(q=>q.status==='pending').length;
+  document.getElementById('stat-pinned').textContent = qs.filter(q=>q.pinned).length;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function linkify(text) { return text.replace(/(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline;word-break:break-all;">$1</a>'); }
+
+// Enter key on code input
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('code-input').addEventListener('keydown', e => { if (e.key==='Enter') joinSession(); });
+  document.getElementById('code-input').addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+});
+</script>
+</body>
+</html>
