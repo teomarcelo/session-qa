@@ -6,12 +6,22 @@ Live Q&A for trainings and events. Instructors run a session with a short code; 
 
 ## What’s in the repo
 
-| File | Role |
+| Path | Role |
 |------|------|
-| `student.html` | Join screen + board for **students** (share this URL widely). |
-| `instructor.html` | Login, sessions, moderation for **instructors** (treat as internal). |
+| `student.html` / `instructor.html` | Page shells (markup + Firebase CDN + Fuse). **Run via Vite** in dev; for production, use the **`dist/`** output of `npm run build` (see below). |
+| `src/` | App logic split into **`config/`**, **`constants/`**, **`lib/`**, and **`student/`** / **`instructor/`** entry bundles. |
+| `vite.config.js`, `package.json` | [Vite](https://vitejs.dev/) multi-page build (`student` + `instructor`). |
 | `SETUP.md` | Firebase project, Firestore rules, hosting, and session flow. |
 | `CHANGELOG.md` | **Timeline of recent product and doc changes** (newest first). |
+
+### Develop and deploy
+
+1. **Install:** `npm install`
+2. **Local dev:** `npm run dev` — open the URLs Vite prints (usually `/instructor.html` and `/student.html`).
+3. **Production build:** `npm run build` — outputs **`dist/`** with hashed JS/CSS and **relative** `./assets/…` URLs so the folder can be dropped onto Netlify or published as a static site from any path.
+4. **Optional env overrides:** set `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, etc. before `npm run build` (see `src/config/firebase.js`).
+
+`dist/` is listed in `.gitignore`; ship the build artifact to hosting rather than committing it.
 
 ---
 
@@ -47,8 +57,8 @@ For a **dated history** (fixes, UI tweaks, rich text, toolbars), see **`CHANGELO
 
 ## Stack (today)
 
-- Plain HTML + CSS + JS in each file; Firebase compat SDK from CDN.
-- Firestore holds instructors, sessions, and questions. GitHub Pages works fine for the static files.
+- **Vite** bundles ES modules from `src/`; markup stays in the two HTML entry files; CSS lives under `src/styles/`. Firebase compat SDK and Fuse stay on CDNs as before.
+- Firestore holds instructors, sessions, and questions. Static hosting (GitHub Pages, Netlify, etc.) serves the **`dist/`** folder after `npm run build`.
 
 ---
 
@@ -71,4 +81,4 @@ Details for maintainers may live in a private notes file; this README stays high
 
 ## Setup
 
-See **`SETUP.md`** for Firebase config, security rules, hosting, and how to run a session end to end.
+See **`SETUP.md`** for Firebase config, security rules, hosting, and how to run a session end to end (including the Vite build step for production).

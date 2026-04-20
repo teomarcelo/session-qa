@@ -1,8 +1,8 @@
 # Session Q&A App — Setup Guide
 
 ## What you got
-- `student.html` — Student-facing Q&A board (share this URL with students)
-- `instructor.html` — Instructor dashboard (keep this URL private or share only with instructors)
+- `student.html` / `instructor.html` — Page shells (Firebase + Fuse from CDN; app code from `src/` via Vite)
+- `src/` — Bundled app logic, styles, and default Firebase config (`src/config/firebase.js`)
 
 **Rich text (no extra Firebase setup):** Session sidebar (“Important”) note, questions, and answers support **Slack-style** markers in plain text (`*bold*`, `` `code` ``, fenced blocks, `https://` links). The app renders them in the browser; stored values are still normal strings on the session or question documents. **Copy** controls on rendered code and the **⋯** emoji grid are UI-only (no extra fields).
 
@@ -11,7 +11,7 @@
 ## Step 1: Firebase Setup (~15 minutes, free)
 
 1. Go to https://console.firebase.google.com
-2. Click **Add project** → pick a project id (the sample HTML is wired to **`tdx-qa`**, or create any project and update `FIREBASE_CONFIG` in both HTML files) → Create
+2. Click **Add project** → pick a project id (the sample defaults in **`src/config/firebase.js`** use **`tdx-qa`**, or create any project and edit that file or set **`VITE_FIREBASE_*`** env vars before `npm run build`) → Create
 3. Go to **Firestore Database** → Create database → Start in **test mode** → Choose a region → Done
 4. Go to **Project Settings** (gear icon) → **Your apps** → click `</>` (Web)
 5. Register the app (e.g. name: "Session Q&A"), skip Firebase Hosting
@@ -23,14 +23,7 @@
      projectId: "tdx-qa",
    };
    ```
-7. Paste those values into **both** `student.html` and `instructor.html` where you see:
-   ```js
-   const FIREBASE_CONFIG = {
-     apiKey: "YOUR_API_KEY",
-     authDomain: "YOUR_PROJECT.firebaseapp.com",
-     projectId: "YOUR_PROJECT_ID",
-   };
-   ```
+7. Paste those values into **`src/config/firebase.js`** in the exported **`FIREBASE_CONFIG`** object (same shape as the Firebase snippet). For CI or one-off builds you can instead export **`VITE_FIREBASE_API_KEY`**, **`VITE_FIREBASE_AUTH_DOMAIN`**, **`VITE_FIREBASE_PROJECT_ID`**, **`VITE_FIREBASE_STORAGE_BUCKET`**, **`VITE_FIREBASE_MESSAGING_SENDER_ID`**, and **`VITE_FIREBASE_APP_ID`** before running **`npm run build`**.
 
 ---
 
@@ -132,25 +125,37 @@ Without this step, uploads or `fetch()` to re-host images can fail even when Sto
 
 ---
 
-## Step 3: Host it (free options)
+## Step 3: Production build (Vite)
+
+The repo is a **Vite** multi-page app: page shells are `student.html` / `instructor.html`; logic lives in `src/` and is bundled into **`dist/`**.
+
+1. Install Node.js 18+ (LTS recommended).
+2. From the project root: `npm install`
+3. Run **`npm run build`**. Output goes to **`dist/`** (`student.html`, `instructor.html`, and `./assets/…` JS/CSS). That folder is what you host (it is gitignored by default).
+4. Optional: override Firebase values at build time with env vars `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` (see `src/config/firebase.js`).
+
+Local development: **`npm run dev`** then open the instructor and student URLs Vite prints (paths stay `/student.html` and `/instructor.html`).
+
+---
+
+## Step 4: Host it (free options)
 
 ### Option A — Netlify (easiest, ~2 minutes)
 1. Go to https://netlify.com → sign up free
-2. Drag and drop your folder (containing both HTML files) onto the Netlify dashboard
-3. You'll instantly get URLs like:
+2. Run **`npm run build`**, then drag and drop the **`dist/`** folder onto the Netlify dashboard (or connect the repo and set **Build command** `npm run build`, **Publish directory** `dist`).
+3. You'll get URLs like:
    - `https://your-app.netlify.app/student.html` ← share with students
    - `https://your-app.netlify.app/instructor.html` ← instructors only
 
 ### Option B — GitHub Pages
-1. Push your files to a GitHub repo
-2. Go to repo Settings → Pages → Deploy from main branch
-3. Your URLs: `https://username.github.io/repo-name/student.html`
+1. Build locally with **`npm run build`**, then publish the **`dist/`** contents (e.g. push `dist` output to `gh-pages` branch, or use a GitHub Action that runs `npm ci && npm run build` and uploads `dist/`).
+2. Your URLs: `https://username.github.io/repo-name/student.html` (adjust if you use a custom Pages URL).
 
 ---
 
 ## How to run a session
 
-1. Open `instructor.html`
+1. Open **`instructor.html`** (from `npm run dev` during development, or from **`dist/instructor.html`** after `npm run build` when hosted)
 2. First time: click **Create an account** → enter your name and choose a PIN
 3. Return visits: sign in with your name and PIN
 4. Click **+ New session** — a unique code like `SQA-A7K2` is generated automatically
