@@ -4,6 +4,18 @@ All notable changes to this project are documented here. Newest first.
 
 ---
 
+## 2026-04-21
+
+### Fixed
+
+- **Student join (`code-input`):** Auto-uppercase on input restores **`selectionStart` / `selectionEnd`** so the caret does not jump to the end when fixing a character in the middle of the session code.
+
+### Documentation
+
+- **`README.md` / `SETUP.md`:** Dev server note — **`/`** is the link hub (`index.html`); student and instructor apps are at **`/student.html`** and **`/instructor.html`**.
+
+---
+
 ## 2026-04-20
 
 ### Added
@@ -14,6 +26,14 @@ All notable changes to this project are documented here. Newest first.
 ### Documentation
 
 - **`README.md` / `SETUP.md`:** Document Vite dev/build and hosting **`dist/`**.
+
+### Fixed
+
+- **`instructor.html` / `student.html`:** Default **`#app-screen`** to **`style="display:none"`** so the main shell does not appear above the login/join UI before bundled CSS loads (avoids seeing both at once in dev or on a slow connection).
+
+### Added
+
+- **`index.html`:** Vite dev (and **`dist/`** after build) serves **`/`** as a short hub with links to **`student.html`** and **`instructor.html`**, since this repo has no single-page app root.
 
 ---
 

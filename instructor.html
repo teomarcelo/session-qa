@@ -101,8 +101,8 @@
   </div>
 </template>
 
-<!-- INSTRUCTOR APP -->
-<div id="app-screen">
+<!-- INSTRUCTOR APP (inline display keeps dashboard hidden until JS runs; avoids login+dashboard stacked if CSS loads late) -->
+<div id="app-screen" style="display:none">
   <div class="top-bar">
     <div class="top-bar-left">
       <div class="top-bar-logo">

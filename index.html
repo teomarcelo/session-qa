@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Q&A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --accent: #0070d2; --text: #1a1814; --muted: #7a7570; --border: #e2ddd6; --bg: #f7f6f3; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem 2.25rem;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin-bottom: 0.35rem; letter-spacing: -0.02em; }
+    p { color: var(--muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem; }
+    .links { display: flex; flex-direction: column; gap: 0.65rem; }
+    a {
+      display: block;
+      text-align: center;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      font-weight: 500;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    a.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    a.primary:hover { filter: brightness(0.95); }
+    a.secondary {
+      background: var(--bg);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+    a.secondary:hover { border-color: var(--accent); color: var(--accent); }
+    code { font-size: 0.82rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Session Q&A</h1>
+    <p>Choose a page. In dev, the app lives at explicit URLs — not the bare <code>/</code> root.</p>
+    <div class="links">
+      <a class="primary" href="./student.html">Student — join a session</a>
+      <a class="secondary" href="./instructor.html">Instructor — host &amp; moderate</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -134,7 +134,7 @@ The repo is a **Vite** multi-page app: page shells are `student.html` / `instruc
 3. Run **`npm run build`**. Output goes to **`dist/`** (`student.html`, `instructor.html`, and `./assets/…` JS/CSS). That folder is what you host (it is gitignored by default).
 4. Optional: override Firebase values at build time with env vars `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` (see `src/config/firebase.js`).
 
-Local development: **`npm run dev`** then open the instructor and student URLs Vite prints (paths stay `/student.html` and `/instructor.html`).
+Local development: **`npm run dev`** then open **`http://localhost:5173/`** (small link hub) or go directly to **`/student.html`** and **`/instructor.html`** — the Q&amp;A UI is not mounted on the bare `/` path by itself.
 
 ---
 

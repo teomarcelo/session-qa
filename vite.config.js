@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
+        main: resolve(__dirname, 'index.html'),
         instructor: resolve(__dirname, 'instructor.html'),
         student: resolve(__dirname, 'student.html'),
       },

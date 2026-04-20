@@ -8,16 +8,17 @@ Live Q&A for trainings and events. Instructors run a session with a short code; 
 
 | Path | Role |
 |------|------|
+| `index.html` | Dev/prod **hub** at `/` with links to student and instructor (the real apps are the two HTML entries below). |
 | `student.html` / `instructor.html` | Page shells (markup + Firebase CDN + Fuse). **Run via Vite** in dev; for production, use the **`dist/`** output of `npm run build` (see below). |
 | `src/` | App logic split into **`config/`**, **`constants/`**, **`lib/`**, and **`student/`** / **`instructor/`** entry bundles. |
-| `vite.config.js`, `package.json` | [Vite](https://vitejs.dev/) multi-page build (`student` + `instructor`). |
+| `vite.config.js`, `package.json` | [Vite](https://vitejs.dev/) multi-page build (`index` + `student` + `instructor`). |
 | `SETUP.md` | Firebase project, Firestore rules, hosting, and session flow. |
 | `CHANGELOG.md` | **Timeline of recent product and doc changes** (newest first). |
 
 ### Develop and deploy
 
 1. **Install:** `npm install`
-2. **Local dev:** `npm run dev` — open the URLs Vite prints (usually `/instructor.html` and `/student.html`).
+2. **Local dev:** `npm run dev` — open **`http://localhost:5173/`** for a link hub, or go straight to **`/student.html`** or **`/instructor.html`** (there is no app UI on `/` unless you use this hub).
 3. **Production build:** `npm run build` — outputs **`dist/`** with hashed JS/CSS and **relative** `./assets/…` URLs so the folder can be dropped onto Netlify or published as a static site from any path.
 4. **Optional env overrides:** set `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, etc. before `npm run build` (see `src/config/firebase.js`).
 

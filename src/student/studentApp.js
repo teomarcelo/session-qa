@@ -1327,7 +1327,20 @@ document.addEventListener('DOMContentLoaded', () => {
   initFmtEmojiPickerLayout();
   fillFmtEmojiPickerGrids();
   document.getElementById('code-input').addEventListener('keydown', e => { if (e.key==='Enter') joinSession(); });
-  document.getElementById('code-input').addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+  document.getElementById('code-input').addEventListener('input', function () {
+    var el = this;
+    var start = el.selectionStart;
+    var end = el.selectionEnd;
+    var next = el.value.toUpperCase();
+    if (el.value === next) return;
+    el.value = next;
+    if (start != null && end != null) {
+      try {
+        var len = next.length;
+        el.setSelectionRange(Math.min(start, len), Math.min(end, len));
+      } catch (e) {}
+    }
+  });
   var qt = document.getElementById('q-text');
   if (qt) qt.addEventListener('paste', onQuestionTextPaste);
   var qListHost = document.getElementById('questions-list');
