@@ -453,15 +453,18 @@
     align-items: center;
     gap: 0.5rem;
   }
-  .student-q-toolbar-sort,
   .student-q-toolbar-notes {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.35rem;
   }
-  .student-q-toolbar-sublabel {
+  .student-q-toolbar-btns > .student-q-toolbar-sublabel {
     flex: 0 0 auto;
+    align-self: center;
+    margin-right: 0.05rem;
+  }
+  .student-q-toolbar-sublabel {
     font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
