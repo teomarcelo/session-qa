@@ -163,6 +163,8 @@ const DEMO_SESSION = {
   sessionTime: '10:00 AM',
   room: 'Hall D — Room 214',
   description: 'Intro to Agentforce: architecture, agent types, and how to build your first autonomous agent without code.',
+  studentSurveyUrl: 'https://example.com',
+  studentSurveyCopyText: 'EXAMPLE-COPY-CODE',
   sessionNoteShow: true,
   sessionNotes: [
     { id: 'demo-sn1', order: 0, title: 'Quick links', body: 'Example: https://trailhead.salesforce.com — appears under Session for students.', imageUrls: [], links: [{ url: 'https://trailhead.salesforce.com', label: 'Trailhead' }], show: true },
@@ -491,6 +493,8 @@ function fillSessionForm(s) {
   document.getElementById('sf-session').value = s.sessionName || '';
   document.getElementById('sf-room').value = s.room || '';
   document.getElementById('sf-desc').value = s.description || '';
+  document.getElementById('sf-survey-url').value = s.studentSurveyUrl || '';
+  document.getElementById('sf-survey-copy').value = s.studentSurveyCopyText || '';
   document.getElementById('session-note-show').checked = (s.sessionNoteShow !== false);
   refreshSessionNotesDraftFromSession(s);
   renderSessionNotesEditor();
@@ -1304,6 +1308,8 @@ function confirmCreateSession() {
     sessionTime: timeVal ? formatDisplayTime(timeVal) : '',
     room: document.getElementById('new-sf-room').value.trim(),
     description: document.getElementById('new-sf-desc').value.trim(),
+    studentSurveyUrl: '',
+    studentSurveyCopyText: '',
     sessionNoteShow: true,
     sessionNotes: [],
     sessionNoteTitle: '',
@@ -1324,18 +1330,38 @@ function confirmCreateSession() {
 }
 
 function saveSession() {
-  if (isDemoMode) { showToast('Session info updated! (demo — not saved to database)'); return; }
   if (!activeSessionCode) { showToast('Select a session first.'); return; }
   const dateVal = document.getElementById('sf-date').value;
   const timeVal = document.getElementById('sf-time').value;
-  db.collection('sessions').doc(activeSessionCode).update({
+  const surveyUrl = document.getElementById('sf-survey-url').value.trim();
+  if (surveyUrl && !/^https:\/\//i.test(surveyUrl)) {
+    showToast('Survey link must start with https://');
+    return;
+  }
+  const payload = {
     className: document.getElementById('sf-class').value.trim(),
     sessionName: document.getElementById('sf-session').value.trim(),
     sessionDate: dateVal ? new Date(dateVal).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '',
     sessionTime: timeVal ? formatDisplayTime(timeVal) : '',
     room: document.getElementById('sf-room').value.trim(),
-    description: document.getElementById('sf-desc').value.trim()
-  }).then(() => showToast('Session info saved!'));
+    description: document.getElementById('sf-desc').value.trim(),
+    studentSurveyUrl: surveyUrl,
+    studentSurveyCopyText: document.getElementById('sf-survey-copy').value.replace(/\r\n/g, '\n'),
+  };
+  if (isDemoMode) {
+    const s = allSessions.find(x => x.id === activeSessionCode);
+    if (s) {
+      Object.assign(s, payload);
+      delete s.studentSurveyButtonLabel;
+    }
+    showToast('Session info saved! (demo)');
+    return;
+  }
+  const firePayload = {
+    ...payload,
+    studentSurveyButtonLabel: firebase.firestore.FieldValue.delete(),
+  };
+  db.collection('sessions').doc(activeSessionCode).update(firePayload).then(() => showToast('Session info saved!'));
 }
 
 function formatDisplayTime(t) {

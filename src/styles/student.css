@@ -245,6 +245,53 @@
   .side-col .session-card-desc { font-size: 0.82rem; padding-top: 0.55rem; margin-top: 0.15rem; }
   .session-card-title { grid-column: 1 / -1; font-weight: 600; font-size: 1.1rem; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
   .session-card-desc { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+  .student-survey-launch-wrap {
+    margin-top: 0.65rem;
+  }
+  .student-survey-launch-help {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+  .student-survey-launch-help-line {
+    margin-bottom: 0.35rem;
+    font-family: 'DM Mono', ui-monospace, monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .student-survey-launch-help-value {
+    color: inherit;
+  }
+  .student-survey-launch-help-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+  .student-survey-launch-btn {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #dbe4ed;
+    background: #eef2f7;
+    color: #4d6b87;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .student-survey-launch-btn:hover:not(:disabled) {
+    background: white;
+    border-color: #a8bdd4;
+    color: #3d5a72;
+  }
+  .student-survey-launch-btn:disabled {
+    opacity: 0.88;
+    cursor: default;
+  }
   .session-meta { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
   .session-meta svg { flex-shrink: 0; }
 

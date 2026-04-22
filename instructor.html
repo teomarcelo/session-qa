@@ -207,6 +207,15 @@
                 <label>Description / Agenda</label>
                 <textarea class="mini-input mini-textarea" id="sf-desc" placeholder="What will you cover in this session?"></textarea>
               </div>
+              <div class="form-field">
+                <label>Survey / feedback link (<code>https://</code>)</label>
+                <input class="mini-input" id="sf-survey-url" type="url" inputmode="url" placeholder="https://…" autocomplete="off">
+              </div>
+              <div class="form-field">
+                <label>Survey ID (text students copy)</label>
+                <textarea class="mini-input mini-textarea" id="sf-survey-copy" rows="3" placeholder="Shown on the student Session card and copied when they tap SURVEY."></textarea>
+              </div>
+              <p class="session-survey-hint">Both a valid <strong>https</strong> link and non-empty survey ID text are required for <strong>SURVEY</strong> to appear on the student <strong>Session</strong> card.</p>
               <button class="save-btn" onclick="saveSession()">Save session info</button>
             </div>
           </div>

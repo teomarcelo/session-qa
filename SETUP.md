@@ -85,6 +85,15 @@ Legacy single-note fields (still read if `sessionNotes` is missing or empty):
 
 - `sessionNoteTitle`, `sessionNoteBody`, `sessionNoteImageUrls` (same semantics as one note)
 
+### Survey / feedback button (student Session card)
+
+Optional fields on `sessions/{code}` (set from **Instructor → Session settings**):
+
+- **`studentSurveyUrl`** — must be **`https://…`** if you want the student control to appear.
+- **`studentSurveyCopyText`** — the **Survey ID** (plain text, can be multiple lines). Shown under the **SURVEY** button and copied when the student clicks it.
+
+The student **Session** sidebar shows **SURVEY** only when the URL passes the app’s **`https:`** check **and** the survey ID text is non-empty after trim. On click, the app opens the URL in a **new tab** first (same gesture), then copies the survey ID. Older sessions may still contain **`studentSurveyButtonLabel`** in Firestore; the app ignores it and the next **Save session info** removes that field.
+
 ### Question pagination
 
 Questions are loaded with `orderBy('createdAt', 'desc')` and a page size of **25**. If Firebase asks you to create an **index** the first time you run a session with questions, follow the link in the error dialog and create it.

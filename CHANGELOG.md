@@ -31,6 +31,7 @@ All notable changes to this project are documented here. Newest first.
 - **Student + instructor sidebar resizer:** Strip is **8px** wide with **`overflow: hidden`** / min-max width so it stays a thin divider. The **chevron** on the strip was removed; **double-click** the strip toggles hide/show (keyboard on the focused separator unchanged). `title` / `aria-label` mention double-click.
 - **“Answered verbally” badge styling:** **Teal** background/text (`.badge-answered-verbal`); green **Answered** unchanged. Removed the inset **box-shadow** that read as an extra border.
 - **Instructor demo sample:** One answered question includes **`answeredVerbally: true`** plus text so the dual-badge case is visible in demo mode.
+- **Survey shortcut (session):** Instructors set **`studentSurveyUrl`** and **`studentSurveyCopyText`** (survey ID) under Session settings. Students see **SURVEY** on the **Session** card with survey ID helper text; click opens **https** in a new tab and copies the ID. Hub-only copy/open controls were removed in favor of this.
 
 ### Added
 

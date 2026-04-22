@@ -271,6 +271,76 @@ function leaveSession() {
   document.getElementById('join-btn').textContent = 'Join session';
 }
 
+function studentCopyPlainToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve, reject) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function wireStudentSurveyLaunch(s) {
+  const wrap = document.getElementById('student-survey-launch-wrap');
+  const btn = document.getElementById('student-survey-launch-btn');
+  const help = document.getElementById('student-survey-launch-help');
+  if (!wrap || !btn || !help) return;
+  const url = String(s.studentSurveyUrl || '').trim();
+  const copyText = String(s.studentSurveyCopyText || '').replace(/\r\n/g, '\n');
+  if (!isHttpsUrl(url) || !copyText.trim()) {
+    wrap.style.display = 'none';
+    btn.onclick = null;
+    help.textContent = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  btn.textContent = 'SURVEY';
+  help.textContent = '';
+  const line1 = document.createElement('div');
+  line1.className = 'student-survey-launch-help-line';
+  line1.appendChild(document.createTextNode('Survey ID: '));
+  const idSpan = document.createElement('span');
+  idSpan.className = 'student-survey-launch-help-value';
+  idSpan.textContent = copyText;
+  line1.appendChild(idSpan);
+  help.appendChild(line1);
+  const line2 = document.createElement('div');
+  line2.className = 'student-survey-launch-help-note';
+  line2.textContent =
+    'Clicking button above automatically copies survey ID.';
+  help.appendChild(line2);
+
+  btn.onclick = function () {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    studentCopyPlainToClipboard(copyText).then(
+      function () {
+        showToast('Survey ID copied. Link opened in a new tab.');
+        btn.textContent = 'Copied!';
+        btn.disabled = true;
+        setTimeout(function () {
+          btn.textContent = 'SURVEY';
+          btn.disabled = false;
+        }, 1600);
+      },
+      function () {
+        showToast('Link opened — copy failed. Use the Survey ID below if needed.');
+      },
+    );
+  };
+}
+
 function renderSessionInfo(s) {
   document.getElementById('si-title').textContent = s.sessionName || s.className || '';
   document.getElementById('si-datetime-text').textContent = [s.sessionDate, s.sessionTime].filter(Boolean).join(' · ') || '—';
@@ -279,6 +349,7 @@ function renderSessionInfo(s) {
   desc.textContent = s.description || '';
   desc.style.display = s.description ? '' : 'none';
   renderSessionNote(s);
+  wireStudentSurveyLaunch(s);
 }
 
 function renderSessionNote(s) {

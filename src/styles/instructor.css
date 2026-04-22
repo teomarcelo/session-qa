@@ -274,6 +274,17 @@
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
   .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
   .form-field label { font-size: 0.72rem; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .session-survey-hint {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    line-height: 1.45;
+    margin: -0.1rem 0 0.2rem;
+  }
+  .session-survey-hint code {
+    font-size: inherit;
+    text-transform: none;
+    letter-spacing: 0;
+  }
   .mini-input {
     width: 100%; padding: 0.55rem 0.75rem; border: 1.5px solid var(--border);
     border-radius: var(--radius-sm); font-family: inherit; font-size: 0.88rem;

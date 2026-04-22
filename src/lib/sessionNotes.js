@@ -21,7 +21,10 @@ function normalizeNoteLinks(raw) {
  */
 export function getSessionNotesFromDoc(s) {
   if (!s) return [];
-  if (Array.isArray(s.sessionNotes) && s.sessionNotes.length) {
+  // Any array (including []) means the multi-note model is in use — do not fall back to legacy
+  // fields, or students keep seeing old title/body/images after notes are cleared in the editor.
+  if (Array.isArray(s.sessionNotes)) {
+    if (s.sessionNotes.length === 0) return [];
     return s.sessionNotes
       .filter(n => n && typeof n === 'object')
       .map((n, i) => ({
