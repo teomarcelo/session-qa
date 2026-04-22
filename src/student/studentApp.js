@@ -238,12 +238,16 @@ function applyStudentSessionSnapshot(data) {
   renderSessionInfo(data);
 }
 
+function studentHasVisibleInstructorNotes() {
+  return !!(currentSession && getStudentVisibleSessionNotes(currentSession).length);
+}
+
 function applyStudentFeedViewDom() {
   var listChromeBlocks = document.querySelectorAll('.student-qa-list-chrome');
   var notesPanel = document.getElementById('student-notes-feed-panel');
   var toggleBtn = document.getElementById('student-feed-notes-toggle');
   if (!listChromeBlocks.length || !notesPanel) return;
-  var notesAvailable = !!(toggleBtn && !toggleBtn.classList.contains('is-hidden'));
+  var notesAvailable = studentHasVisibleInstructorNotes();
   var showNotes = studentFeedView === 'notes' && notesAvailable;
   listChromeBlocks.forEach(function (el) {
     el.classList.toggle('is-hidden', showNotes);
@@ -258,7 +262,9 @@ function applyStudentFeedViewDom() {
 
 function toggleStudentInstructorNotes(btn) {
   var toggleBtn = document.getElementById('student-feed-notes-toggle');
-  if (!toggleBtn || toggleBtn.classList.contains('is-hidden')) return;
+  if (!toggleBtn || !studentHasVisibleInstructorNotes()) return;
+  toggleBtn.classList.remove('is-hidden');
+  toggleBtn.removeAttribute('aria-hidden');
   studentFeedView = studentFeedView === 'notes' ? 'qa' : 'notes';
   applyStudentFeedViewDom();
   if (btn && typeof btn.focus === 'function') {

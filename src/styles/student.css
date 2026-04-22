@@ -1169,17 +1169,21 @@
     transition: all 0.15s;
   }
   .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-  /* Sort + instructor-notes: “on” state without a second solid-blue pill (only status filters use .active). */
+  /* Sort + instructor-notes: “on” state — outlined, not filled like .active (only one solid-blue status pill). */
   .filter-btn.filter-btn-aux-on {
-    background: var(--accent-light);
+    background: var(--surface);
     border-color: var(--accent);
     color: var(--accent);
-    font-weight: 500;
+    font-weight: 600;
   }
   .filter-btn.filter-btn-aux-on:hover {
-    background: color-mix(in srgb, var(--accent-light) 75%, var(--accent) 25%);
+    background: var(--accent-light);
     border-color: var(--accent-hover);
     color: var(--accent-hover);
+  }
+  /* When there are no student-visible notes, JS keeps .is-hidden on the toggle — must hide it (toolbar lost this rule when tabs moved). */
+  #student-feed-notes-toggle.is-hidden {
+    display: none !important;
   }
 
   /* Edit modal */
