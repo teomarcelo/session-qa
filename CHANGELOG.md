@@ -4,21 +4,6 @@ All notable changes to this project are documented here. Newest first.
 
 ---
 
-## 2026-04-23
-
-### Added
-
-- **`src/lib/answeredBadge.js`:** Status badges for answered questions. Optional Firestore boolean **`answeredVerbally`** on `sessions/{code}/questions/{id}` is set when the instructor uses **Answered verbally**; it is cleared when marking **pending** (or when the last answer is removed and the thread returns to pending). If a host marks verbally and later posts a written (or image) answer, students and instructors can see **both** an **Answered verbally** pill and an **Answered** pill. Older data without the flag still shows one verbal-style pill when the thread is answered with no in-app reply text or images.
-
-### Changed
-
-- **Instructor card actions:** **Answered verbally** and **Mark pending** are always **two buttons** (not toggled in one slot). Order: **Save answer** → **Answered verbally** → **Pin** → **Mark pending** → **Delete** (Mark pending sits left of Delete).
-- **Student + instructor sidebar resizer:** Strip is **8px** wide with **`overflow: hidden`** / min-max width so it stays a thin divider. The **chevron** on the strip was removed to avoid layout flicker; **double-click** the strip toggles hide/show (keyboard on the focused separator unchanged). `title` / `aria-label` mention double-click.
-- **“Answered verbally” badge styling:** **Teal** background/text (`.badge-answered-verbal`); green **Answered** unchanged. Removed the inset **box-shadow** that read as an extra border.
-- **Instructor demo sample:** One answered question includes **`answeredVerbally: true`** plus text so the dual-badge case is visible in demo mode.
-
----
-
 ## 2026-04-18
 
 ### Added
@@ -42,6 +27,14 @@ All notable changes to this project are documented here. Newest first.
 - **Student + instructor stats:** Sidebar **Session stats** / **Overview** with a **scope hint**. **Total**, **Answered**, **Pending**, and **Pinned** (and instructor filter count badges) use **Firestore aggregate `count()`** queries on `sessions/{id}/questions` so numbers are **session-wide**, not tied to how many pages you have opened. The question list still loads in pages. **Dependency:** `firebase` npm package.
 - **Fixed:** Session-wide counts always fell back to “loaded only” because **CDN compat** and **npm modular** did not share one app. Firebase compat is now initialized from **`src/lib/firebaseCompat.js`** (bundled with Vite); **HTML no longer loads Firebase from jsDelivr**. Modular `getApp()` / `getFirestore()` then match compat `firebase.firestore()`. If aggregates still fail (offline, rules, missing index), the hint explains the cache fallback.
 - **Pagination:** **Next** / phantom page respects an **end-of-list** flag when an older fetch returns no documents (fixes sessions with exactly `QUESTIONS_PAGE_SIZE`, `2×`, … questions). **Instructor demo:** Reselecting the demo session repopulates questions after the shared session reset; demo stats stay client-side from sample data.
+- **Instructor card actions:** **Answered verbally** and **Mark pending** are always **two buttons** (not one toggled slot). Order: **Save answer** → **Answered verbally** → **Pin** → **Mark pending** → **Delete** (Mark pending sits left of Delete).
+- **Student + instructor sidebar resizer:** Strip is **8px** wide with **`overflow: hidden`** / min-max width so it stays a thin divider. The **chevron** on the strip was removed; **double-click** the strip toggles hide/show (keyboard on the focused separator unchanged). `title` / `aria-label` mention double-click.
+- **“Answered verbally” badge styling:** **Teal** background/text (`.badge-answered-verbal`); green **Answered** unchanged. Removed the inset **box-shadow** that read as an extra border.
+- **Instructor demo sample:** One answered question includes **`answeredVerbally: true`** plus text so the dual-badge case is visible in demo mode.
+
+### Added
+
+- **`src/lib/answeredBadge.js`:** Status badges for answered questions. Optional Firestore boolean **`answeredVerbally`** on `sessions/{code}/questions/{id}` is set when the instructor uses **Answered verbally**; cleared when marking **pending** (or when the last answer is removed and the thread returns to pending). Verbal mark plus a written/image answer can show **both** **Answered verbally** and **Answered** pills. Older rows without the flag still infer one verbal-style pill when answered with no in-app reply text or images.
 
 ---
 
