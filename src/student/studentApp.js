@@ -232,9 +232,61 @@ function studentSessionDisplayTitle(s) {
   return String(s.sessionName || '').trim();
 }
 
+/** Normalize Firestore Timestamp / plain seconds object / string for sidebar date line. */
+function studentFormatSessionDatePart(val) {
+  if (val == null || val === '') return '';
+  if (typeof val === 'object') {
+    if (typeof val.toDate === 'function') {
+      try {
+        return val.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) {
+        return '';
+      }
+    }
+    if (typeof val.seconds === 'number') {
+      return new Date(val.seconds * 1000).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
+  }
+  return String(val).trim();
+}
+
+/** Same for time; instructor saves display strings like "10:30 AM" — accept those as-is. */
+function studentFormatSessionTimePart(val) {
+  if (val == null || val === '') return '';
+  if (typeof val === 'object') {
+    if (typeof val.toDate === 'function') {
+      try {
+        return val.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      } catch (e) {
+        return '';
+      }
+    }
+    if (typeof val.seconds === 'number') {
+      return new Date(val.seconds * 1000).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+  }
+  return String(val).trim();
+}
+
+function studentSessionDateTimeLine(s) {
+  if (!s) return '—';
+  var d = studentFormatSessionDatePart(s.sessionDate);
+  var t = studentFormatSessionTimePart(s.sessionTime);
+  var line = [d, t].filter(Boolean).join(' · ');
+  return line || '—';
+}
+
 /** Apply Firestore session fields to UI (sidebar card, OrgClaim/Survey, notes, top bar). */
 function applyStudentSessionSnapshot(data) {
-  if (!data) return;
+  if (!data || typeof data !== 'object') return;
   currentSession = data;
   var bar = document.getElementById('bar-session-name');
   if (bar) bar.textContent = studentSessionDisplayTitle(data) || 'Session';
@@ -334,8 +386,13 @@ function enterApp() {
   if (qsIn) qsIn.value = '';
 
   unsubSession = db.collection('sessions').doc(sessionCode).onSnapshot(
+    { includeMetadataChanges: true },
     function (snap) {
-      if (snap.exists) applyStudentSessionSnapshot(snap.data());
+      if (!snap.exists) return;
+      var payload = snap.data();
+      if (payload && typeof payload === 'object') {
+        applyStudentSessionSnapshot(payload);
+      }
     },
     function (err) {
       console.warn('Student session listener error:', err);
@@ -525,7 +582,8 @@ function wireStudentSurveyLaunch(s) {
 
 function renderSessionInfo(s) {
   document.getElementById('si-title').textContent = studentSessionDisplayTitle(s);
-  document.getElementById('si-datetime-text').textContent = [s.sessionDate, s.sessionTime].filter(Boolean).join(' · ') || '—';
+  var dtEl = document.getElementById('si-datetime-text');
+  if (dtEl) dtEl.textContent = studentSessionDateTimeLine(s);
   document.getElementById('si-room-text').textContent = s.room || '—';
   const desc = document.getElementById('si-desc');
   desc.textContent = s.description || '';

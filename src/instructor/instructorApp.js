@@ -506,6 +506,27 @@ function loadDemoSessions() {
   }
 }
 
+/** Firestore Timestamp / { seconds } / string → Date or null (session form + parity with student). */
+function firestoreDateLikeToDate(val) {
+  if (val == null || val === '') return null;
+  if (typeof val === 'object') {
+    if (typeof val.toDate === 'function') {
+      try {
+        const d = val.toDate();
+        return isNaN(d) ? null : d;
+      } catch (e) {
+        return null;
+      }
+    }
+    if (typeof val.seconds === 'number') {
+      const d = new Date(val.seconds * 1000);
+      return isNaN(d) ? null : d;
+    }
+  }
+  const d = new Date(val);
+  return isNaN(d) ? null : d;
+}
+
 function fillSessionForm(s) {
   document.getElementById('sf-session').value = s.sessionName || '';
   document.getElementById('sf-room').value = s.room || '';
@@ -517,15 +538,12 @@ function fillSessionForm(s) {
   document.getElementById('session-note-show').checked = (s.sessionNoteShow !== false);
   refreshSessionNotesDraftFromSession(s);
   renderSessionNotesEditor();
-  // date/time — convert display back to input format if possible
-  if (s.sessionDate) {
-    try {
-      const d = new Date(s.sessionDate);
-      if (!isNaN(d)) document.getElementById('sf-date').value = d.toISOString().split('T')[0];
-      else document.getElementById('sf-date').value = '';
-    } catch(e) { document.getElementById('sf-date').value = ''; }
-  } else { document.getElementById('sf-date').value = ''; }
-  document.getElementById('sf-time').value = displayTimeToTimeInput(s.sessionTime) || '';
+  const dateObj = firestoreDateLikeToDate(s.sessionDate);
+  document.getElementById('sf-date').value = dateObj ? dateObj.toISOString().split('T')[0] : '';
+  const timeObj = firestoreDateLikeToDate(s.sessionTime);
+  document.getElementById('sf-time').value = timeObj
+    ? `${String(timeObj.getHours()).padStart(2, '0')}:${String(timeObj.getMinutes()).padStart(2, '0')}`
+    : (displayTimeToTimeInput(s.sessionTime) || '');
   // instructors
   const instructors = s.instructors || (s.instructorNames ? s.instructorNames.split(',').map(n=>n.trim()).filter(Boolean) : []);
   renderInstructorList(instructors);

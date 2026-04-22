@@ -1228,16 +1228,17 @@
     border-color: var(--accent);
     color: white;
   }
-  /* Sort + instructor-notes when “on” — light fill (not the same solid blue as status filters). */
+  /* Sort + instructor notes when “on” — same solid primary as status (Sort label separates meaning). */
   .filter-btn.filter-btn-aux-on {
-    background: var(--accent-light);
+    background: var(--accent);
     border-color: var(--accent);
-    color: var(--accent-hover);
+    color: white;
     font-weight: 600;
   }
   .filter-btn.filter-btn-aux-on:hover {
+    background: var(--accent-hover);
     border-color: var(--accent-hover);
-    color: var(--accent-hover);
+    color: white;
   }
   /* When there are no student-visible notes, JS keeps .is-hidden on the toggle — must hide it (toolbar lost this rule when tabs moved). */
   #student-feed-notes-toggle.is-hidden {
