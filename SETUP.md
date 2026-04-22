@@ -206,6 +206,8 @@ This repo ships **`.github/workflows/deploy-pages.yml`**, which builds with **No
 
 3. **Turn on GitHub Pages from Actions:** Repo **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). Save if prompted.
 
+   **Critical:** If **Source** is set to **Deploy from a branch** (e.g. **`main`** / **`/` (root)**), GitHub publishes the **raw repo files** — `student.html` still contains `/src/student/main.js`, which does **not** exist on Pages, so **no CSS and no app JS** (the join screen looks like plain HTML). Only **GitHub Actions** as the source publishes the **`npm run build`** output from **`dist/`**, where links look like **`./assets/…`**.
+
 4. **First deploy:** Push to **`main`** (or **Actions → Deploy to GitHub Pages → Run workflow**). Open the workflow run; when it is green, **Settings → Pages** will show the **site URL** (often `https://<user>.github.io/<repo>/`).
 
 5. **Optional first-time prompt:** If GitHub asks you to **configure** the **`github-pages`** environment, approve it (**Settings → Environments → github-pages**).
@@ -217,6 +219,15 @@ This repo ships **`.github/workflows/deploy-pages.yml`**, which builds with **No
 - Instructors: `https://<user>.github.io/<repo>/instructor.html`
 
 **Storage CORS:** Add your real **`https://<user>.github.io`** origin to **`storage-cors.json`** and run **`gsutil cors set …`** (see **Storage CORS** above), or image uploads may fail from the deployed site.
+
+#### Troubleshooting: student page has no styling (unstyled join form)
+
+1. In the browser, open **View Page Source** (not DevTools Elements) for **`student.html`**.
+2. If you see **`src="/src/student/main.js"`** (or **`/src/`** anywhere), the live site is **not** the Vite build. Go back to **Settings → Pages** and set **Source** to **GitHub Actions** only; disable **Deploy from a branch** if it is selected.
+3. Open **Actions** → **Deploy to GitHub Pages** — the latest run must be **green**. If it never ran, push a commit or use **Run workflow**.
+4. After the deploy finishes, do a **hard refresh** (e.g. **Cmd+Shift+R** / **Ctrl+Shift+R**) so the browser does not keep an old HTML cache.
+
+When it is correct, View Source will show **`<link rel="stylesheet" … href="./assets/student-….css">`** and **`<script type="module" … src="./assets/student-….js">`**.
 
 #### Manual alternative (no Actions)
 

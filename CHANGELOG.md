@@ -9,6 +9,8 @@ All notable changes to this project are documented here. Newest first.
 ### Docs
 
 - **README** and **SETUP.md:** GitHub Pages deploy walkthrough (**Option B — GitHub Actions**): enable Pages from Actions, branch **`main`**, bookmark URLs for hub / `student.html` / `instructor.html`, Storage CORS note, optional **`VITE_*`** secrets.
+- **SETUP / README:** Troubleshooting when **`student.html` has no CSS** — usually **Pages → Source** is **Deploy from a branch** (publishes raw repo HTML with `/src/…`) instead of **GitHub Actions** (publishes **`dist/`** with `./assets/…`).
+- **GitHub Actions:** After **`npm run build`**, verify **`dist/student.html`** references **`./assets/`** and not **`/src/student/main.js`** before uploading the Pages artifact.
 
 ### Student
 

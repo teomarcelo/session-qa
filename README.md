@@ -28,6 +28,8 @@ Live Q&A for trainings and events. Instructors run a session with a short code; 
 
 This repo includes **`.github/workflows/deploy-pages.yml`**: on every push to **`main`**, GitHub Actions runs **`npm ci`** + **`npm run build`** and publishes **`dist/`** to Pages. Full click-by-click steps are in **`SETUP.md` → Step 4 → Option B — GitHub Pages (GitHub Actions)`**.
 
+If **`student.html` looks like plain HTML** (no styling), Pages is almost certainly serving **source files** instead of the **built `dist/`**: set **Settings → Pages → Source** to **GitHub Actions**, not **Deploy from a branch**. Details in **`SETUP.md`** under **Troubleshooting: student page has no styling**.
+
 ---
 
 ## Changelog / timeline

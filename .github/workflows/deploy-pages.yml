@@ -27,6 +27,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Verify Vite emitted bundled assets (not /src/ dev paths)
+        run: |
+          test -f dist/student.html
+          grep -q './assets/' dist/student.html || { echo 'dist/student.html must reference ./assets/ — build output looks wrong'; exit 1; }
+          if grep -qF '/src/student/main.js' dist/student.html; then
+            echo 'dist/student.html still points at /src/student/main.js — Vite did not transform the entry HTML'
+            exit 1
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
