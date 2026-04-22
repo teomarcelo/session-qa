@@ -1179,8 +1179,13 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-  /* Sort + instructor-notes: “on” state — outlined, not filled like .active (only one solid-blue status pill). */
+  /* Solid fill only for status chips (All / Pinned / …). Sort + Instructor notes must not use .active or they read as a second primary. */
+  .filter-btn[data-filter].active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  /* Sort + instructor-notes: “on” state — outlined, not filled like status .active. */
   .filter-btn.filter-btn-aux-on {
     background: var(--surface);
     border-color: var(--accent);

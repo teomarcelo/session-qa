@@ -1240,8 +1240,13 @@ function setFilter(f, btn) {
   }
   currentFilter = f;
   document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  ['student-sort-votes-btn', 'student-feed-notes-toggle'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  if (btn) btn.classList.add('active');
   renderQuestions();
+  syncStudentSortVotesButton();
 }
 
 function syncStudentSortVotesButton() {
