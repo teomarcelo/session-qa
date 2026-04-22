@@ -3,6 +3,15 @@ import { FIREBASE_CONFIG } from '../config/firebase.js';
 import { QUESTIONS_PAGE_SIZE } from '../constants/app.js';
 import { INSTRUCTOR_PIN_PEPPER } from '../constants/auth.js';
 import { esc, formatRichMessage, isHttpsUrl, copyRichCodeBlock } from '../lib/richText.js';
+import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../lib/sessionLaunch.js';
+import {
+  SESSION_JOIN_PREFIX,
+  syncJoinSuffixInput,
+  buildSessionCodeFromJoinRow,
+  setJoinRowFromSessionCode,
+  JOIN_CODE_ROW_CLASS,
+  JOIN_CODE_ROW_LEGACY_TDX_CLASS,
+} from '../lib/sessionCode.js';
 import { createShowToast } from '../lib/toast.js';
 import { formatQuestionWhen } from '../lib/formatQuestionWhen.js';
 import { filterCorpusByFuseSearch } from '../lib/questionSearch.js';
@@ -149,13 +158,20 @@ let instructorSessionStatsSerial = 0;
 let instructorStatsAggTimer = null;
 const answerDrafts = {};
 const pendingAnswerImages = {};
-/** Working copy for the Important notes editor (reordered in UI, saved on “Save session notes”). */
+/** When set, the next Save answer updates this index instead of appending (`{ qId, index }`). */
+let answerEditState = null;
+/** Working copy for the Instructor Notes editor (reordered in UI, saved on “Save session notes”). */
 let sessionNotesDraft = [];
+
+function getQuestionAnswersArray(q) {
+  if (q.answers && q.answers.length) return [...q.answers];
+  if (q.answer) return [{ instructor: 'Instructor', text: q.answer, ts: null }];
+  return [];
+}
 
 const DEMO_SESSION_CODE = 'SQA-DEMO';
 const DEMO_SESSION = {
   id: DEMO_SESSION_CODE,
-  className: 'Agentforce Instructor Series',
   sessionName: 'Agentforce Fundamentals — Track A',
   instructors: [],
   instructorNames: '',
@@ -163,6 +179,8 @@ const DEMO_SESSION = {
   sessionTime: '10:00 AM',
   room: 'Hall D — Room 214',
   description: 'Intro to Agentforce: architecture, agent types, and how to build your first autonomous agent without code.',
+  studentOrgClaimUrl: DEFAULT_STUDENT_ORG_CLAIM_URL,
+  studentOrgClaimCopyText: 'DEMO-ORG-CODE',
   studentSurveyUrl: 'https://example.com',
   studentSurveyCopyText: 'EXAMPLE-COPY-CODE',
   sessionNoteShow: true,
@@ -196,8 +214,8 @@ function instructorCompactSelectSessionHtml() {
 
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'SQA-';
-  for (let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  let code = SESSION_JOIN_PREFIX;
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
@@ -489,10 +507,11 @@ function loadDemoSessions() {
 }
 
 function fillSessionForm(s) {
-  document.getElementById('sf-class').value = s.className || '';
   document.getElementById('sf-session').value = s.sessionName || '';
   document.getElementById('sf-room').value = s.room || '';
   document.getElementById('sf-desc').value = s.description || '';
+  document.getElementById('sf-orgclaim-url').value = String(s.studentOrgClaimUrl || '').trim();
+  document.getElementById('sf-orgclaim-copy').value = s.studentOrgClaimCopyText || '';
   document.getElementById('sf-survey-url').value = s.studentSurveyUrl || '';
   document.getElementById('sf-survey-copy').value = s.studentSurveyCopyText || '';
   document.getElementById('session-note-show').checked = (s.sessionNoteShow !== false);
@@ -506,7 +525,7 @@ function fillSessionForm(s) {
       else document.getElementById('sf-date').value = '';
     } catch(e) { document.getElementById('sf-date').value = ''; }
   } else { document.getElementById('sf-date').value = ''; }
-  document.getElementById('sf-time').value = s.sessionTime || '';
+  document.getElementById('sf-time').value = displayTimeToTimeInput(s.sessionTime) || '';
   // instructors
   const instructors = s.instructors || (s.instructorNames ? s.instructorNames.split(',').map(n=>n.trim()).filter(Boolean) : []);
   renderInstructorList(instructors);
@@ -1108,7 +1127,7 @@ function renderSessionsList() {
   }
   el.innerHTML = allSessions.map(s => {
     const active = activeSessionCode === s.id;
-    const title = esc(s.sessionName || s.className || 'Untitled');
+    const title = esc(s.sessionName || 'Untitled');
     return `<div class="session-list-row">
       <button type="button" class="session-select-btn${active ? ' session-select-btn--active' : ''}" onclick="selectSession('${s.id}')">
         <div style="font-family:'DM Mono',monospace;font-size:0.75rem;letter-spacing:0.08em">${esc(s.id)}</div>
@@ -1189,6 +1208,8 @@ function selectSession(code) {
   hasMoreOlder = false;
   instructorOlderBeyondLoadExhausted = false;
   Object.keys(pendingAnswerImages).forEach(k => { delete pendingAnswerImages[k]; });
+  Object.keys(answerDrafts).forEach(k => { delete answerDrafts[k]; });
+  answerEditState = null;
   const iqSearch = document.getElementById('instr-questions-search');
   if (iqSearch) iqSearch.value = '';
 
@@ -1229,7 +1250,8 @@ function selectSession(code) {
 }
 
 function openJoinSessionModal() {
-  document.getElementById('join-session-code').value = '';
+  const jc = document.getElementById('join-session-code');
+  if (jc) setJoinRowFromSessionCode(jc, '');
   document.getElementById('join-session-error').textContent = '';
   document.getElementById('join-session-modal').classList.add('open');
 }
@@ -1238,9 +1260,23 @@ function closeJoinSessionModal() {
 }
 
 function instructorJoinSession() {
-  const raw = document.getElementById('join-session-code').value.trim().toUpperCase();
-  const code = raw.replace(/[^A-Z0-9-]/g, '');
-  if (!code) { document.getElementById('join-session-error').textContent = 'Please enter a session code.'; return; }
+  const sufEl = document.getElementById('join-session-code');
+  const row = sufEl && sufEl.closest('.' + JOIN_CODE_ROW_CLASS);
+  const code = buildSessionCodeFromJoinRow(sufEl);
+  if (!code || code === SESSION_JOIN_PREFIX) {
+    document.getElementById('join-session-error').textContent =
+      'Enter the four characters after SQA- (or paste a full TDX- code).';
+    return;
+  }
+  if (row && !row.classList.contains(JOIN_CODE_ROW_LEGACY_TDX_CLASS)) {
+    const suf = String(sufEl.value || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+    if (suf.length < 4) {
+      document.getElementById('join-session-error').textContent = 'Enter all four characters after SQA-.';
+      return;
+    }
+  }
   db.collection('sessions').doc(code).get().then(doc => {
     if (!doc.exists) { document.getElementById('join-session-error').textContent = 'Session not found. Check the code.'; return; }
     // Add to instructor's joined sessions list in Firestore; un-hide if it was hidden from this list only
@@ -1273,12 +1309,15 @@ function instructorJoinSession() {
 
 function openCreateSessionModal() {
   if (isDemoMode) { showToast('Exit demo mode to create real sessions.'); return; }
-  document.getElementById('new-sf-class').value = '';
   document.getElementById('new-sf-session').value = '';
   document.getElementById('new-sf-date').value = '';
   document.getElementById('new-sf-time').value = '';
   document.getElementById('new-sf-room').value = '';
   document.getElementById('new-sf-desc').value = '';
+  document.getElementById('new-sf-orgclaim-url').value = '';
+  document.getElementById('new-sf-orgclaim-copy').value = '';
+  document.getElementById('new-sf-survey-url').value = '';
+  document.getElementById('new-sf-survey-copy').value = '';
   document.getElementById('create-session-error').textContent = '';
   document.getElementById('create-session-modal').classList.add('open');
 }
@@ -1287,20 +1326,32 @@ function closeCreateSessionModal() {
 }
 
 function confirmCreateSession() {
+  const errEl = document.getElementById('create-session-error');
   const sessionName = document.getElementById('new-sf-session').value.trim();
-  const className = document.getElementById('new-sf-class').value.trim();
-  if (!sessionName && !className) {
-    document.getElementById('create-session-error').textContent = 'Please enter at least a class name or session name.';
+  if (!sessionName) {
+    errEl.textContent = 'Please enter a session name.';
+    return;
+  }
+  const orgClaimUrlRaw = document.getElementById('new-sf-orgclaim-url').value.trim();
+  if (orgClaimUrlRaw && !/^https?:\/\//i.test(orgClaimUrlRaw)) {
+    errEl.textContent = 'OrgClaim link must start with http:// or https://';
+    return;
+  }
+  const surveyUrl = document.getElementById('new-sf-survey-url').value.trim();
+  if (surveyUrl && !/^https:\/\//i.test(surveyUrl)) {
+    errEl.textContent = 'Survey link must start with https://';
     return;
   }
   const code = genCode();
   const ownerId = nameToId(currentInstructor || '');
   const dateVal = document.getElementById('new-sf-date').value;
   const timeVal = document.getElementById('new-sf-time').value;
+  const orgClaimCopy = document.getElementById('new-sf-orgclaim-copy').value.trim();
+  const surveyCopy = document.getElementById('new-sf-survey-copy').value.trim();
   const btn = document.querySelector('#create-session-modal .save-btn');
   btn.disabled = true; btn.textContent = 'Creating...';
-  db.collection('sessions').doc(code).set({
-    className,
+  errEl.textContent = '';
+  const sessionPayload = {
     sessionName,
     instructorNames: currentInstructor || '',
     instructors: currentInstructor ? [currentInstructor] : [],
@@ -1308,8 +1359,10 @@ function confirmCreateSession() {
     sessionTime: timeVal ? formatDisplayTime(timeVal) : '',
     room: document.getElementById('new-sf-room').value.trim(),
     description: document.getElementById('new-sf-desc').value.trim(),
-    studentSurveyUrl: '',
-    studentSurveyCopyText: '',
+    studentOrgClaimUrl: orgClaimUrlRaw || DEFAULT_STUDENT_ORG_CLAIM_URL,
+    studentOrgClaimCopyText: orgClaimCopy,
+    studentSurveyUrl: surveyUrl,
+    studentSurveyCopyText: surveyCopy,
     sessionNoteShow: true,
     sessionNotes: [],
     sessionNoteTitle: '',
@@ -1318,40 +1371,63 @@ function confirmCreateSession() {
     ownerId,
     ownerName: currentInstructor || '',
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
-    btn.disabled = false; btn.textContent = 'Create session';
-    closeCreateSessionModal();
-    selectSession(code);
-    showToast('Session created: ' + code);
-  }).catch(e => {
-    btn.disabled = false; btn.textContent = 'Create session';
-    document.getElementById('create-session-error').textContent = 'Error: ' + e.message;
-  });
+  };
+  db.collection('sessions').doc(code).set(sessionPayload)
+    .then(() => db.collection('sessions').doc(code).get())
+    .then((doc) => {
+      btn.disabled = false;
+      btn.textContent = 'Create session';
+      if (!doc.exists) {
+        errEl.textContent = 'Session was created but could not be loaded. Refresh the page.';
+        closeCreateSessionModal();
+        return;
+      }
+      const merged = { id: doc.id, ...doc.data() };
+      const idx = allSessions.findIndex((x) => x.id === code);
+      if (idx >= 0) allSessions[idx] = { ...allSessions[idx], ...merged };
+      else allSessions.unshift(merged);
+      renderSessionsList();
+      closeCreateSessionModal();
+      selectSession(code);
+      showToast('Session created: ' + code);
+    })
+    .catch((e) => {
+      btn.disabled = false;
+      btn.textContent = 'Create session';
+      errEl.textContent = 'Error: ' + (e && e.message ? e.message : String(e));
+    });
 }
 
 function saveSession() {
   if (!activeSessionCode) { showToast('Select a session first.'); return; }
   const dateVal = document.getElementById('sf-date').value;
   const timeVal = document.getElementById('sf-time').value;
+  const orgClaimUrlRaw = document.getElementById('sf-orgclaim-url').value.trim();
+  if (orgClaimUrlRaw && !/^https?:\/\//i.test(orgClaimUrlRaw)) {
+    showToast('OrgClaim link must start with http:// or https://');
+    return;
+  }
   const surveyUrl = document.getElementById('sf-survey-url').value.trim();
   if (surveyUrl && !/^https:\/\//i.test(surveyUrl)) {
     showToast('Survey link must start with https://');
     return;
   }
   const payload = {
-    className: document.getElementById('sf-class').value.trim(),
     sessionName: document.getElementById('sf-session').value.trim(),
     sessionDate: dateVal ? new Date(dateVal).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '',
     sessionTime: timeVal ? formatDisplayTime(timeVal) : '',
     room: document.getElementById('sf-room').value.trim(),
     description: document.getElementById('sf-desc').value.trim(),
+    studentOrgClaimUrl: orgClaimUrlRaw || DEFAULT_STUDENT_ORG_CLAIM_URL,
+    studentOrgClaimCopyText: document.getElementById('sf-orgclaim-copy').value.trim(),
     studentSurveyUrl: surveyUrl,
-    studentSurveyCopyText: document.getElementById('sf-survey-copy').value.replace(/\r\n/g, '\n'),
+    studentSurveyCopyText: document.getElementById('sf-survey-copy').value.trim(),
   };
   if (isDemoMode) {
     const s = allSessions.find(x => x.id === activeSessionCode);
     if (s) {
       Object.assign(s, payload);
+      delete s.className;
       delete s.studentSurveyButtonLabel;
     }
     showToast('Session info saved! (demo)');
@@ -1359,15 +1435,43 @@ function saveSession() {
   }
   const firePayload = {
     ...payload,
+    className: firebase.firestore.FieldValue.delete(),
     studentSurveyButtonLabel: firebase.firestore.FieldValue.delete(),
   };
-  db.collection('sessions').doc(activeSessionCode).update(firePayload).then(() => showToast('Session info saved!'));
+  db.collection('sessions').doc(activeSessionCode).update(firePayload).then(() => {
+    const s = allSessions.find(x => x.id === activeSessionCode);
+    if (s) {
+      Object.assign(s, payload);
+      delete s.className;
+    }
+    showToast('Session info saved!');
+  }).catch((e) => {
+    showToast('Could not save session: ' + (e && e.message ? e.message : String(e)));
+  });
 }
 
 function formatDisplayTime(t) {
   const [h,m] = t.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
   return `${h%12||12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+/** Reverse `formatDisplayTime` so `<input type="time">` can show saved session time. */
+function displayTimeToTimeInput(display) {
+  const raw = String(display || '').trim();
+  if (!raw) return '';
+  if (/^\d{1,2}:\d{2}$/.test(raw)) {
+    const parts = raw.split(':');
+    return `${String(parseInt(parts[0], 10)).padStart(2, '0')}:${String(parseInt(parts[1], 10)).padStart(2, '0')}`;
+  }
+  const m = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return '';
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h < 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
 function syncActiveCodeBadge() {
@@ -1483,13 +1587,16 @@ function renderQuestions() {
     return;
   }
   list.innerHTML = qs.map(q => {
-    // answers: support both old single `answer` string and new `answers` array
-    const answers = q.answers && q.answers.length ? q.answers : (q.answer ? [{ instructor: 'Instructor', text: q.answer, ts: null }] : []);
+    const answers = getQuestionAnswersArray(q);
+    const editingThis = answerEditState && answerEditState.qId === q.id;
     const answersHtml = answers.map((a, i) => `
       <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:0.6rem 0.9rem;margin-bottom:0.4rem;position:relative;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.3rem;">
           <span style="font-size:0.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;">${esc(a.instructor||'Instructor')}</span>
-          <button onclick="deleteAnswer('${q.id}',${i})" style="background:none;border:none;font-size:0.8rem;color:var(--text-light);cursor:pointer;padding:0 2px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-light)'">×</button>
+          <span style="display:flex;align-items:center;gap:0.35rem;">
+            <button type="button" onclick="beginEditAnswer('${q.id}',${i})" title="Edit this reply" style="background:none;border:none;font-size:0.78rem;color:var(--accent);cursor:pointer;padding:0 4px;line-height:1;font-family:inherit;font-weight:500;">Edit</button>
+            <button type="button" onclick="deleteAnswer('${q.id}',${i})" title="Remove this reply" style="background:none;border:none;font-size:0.8rem;color:var(--text-light);cursor:pointer;padding:0 2px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-light)'">×</button>
+          </span>
         </div>
         <div class="rich-message" style="font-size:0.88rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${formatRichMessage(a.text||'')}</div>
         ${(Array.isArray(a.imageUrls) && a.imageUrls.length) ? '<div class="answer-attached-images">' + a.imageUrls.filter(isHttpsUrl).map(u => { const safe = String(u).replace(/"/g, ''); return '<a href="'+safe+'" target="_blank" rel="noopener noreferrer"><img src="'+safe+'" alt="" loading="lazy" referrerpolicy="no-referrer"></a>'; }).join('') + '</div>' : ''}
@@ -1517,7 +1624,10 @@ function renderQuestions() {
       ${htmlQuestionAttachedImagesInstr(q)}
       ${answersHtml ? `<div style="margin-bottom:0.75rem;">${answersHtml}</div>` : ''}
       <div class="q-answer-area">
-        <div class="answer-label">${answers.length ? 'Add another answer' : 'Answer'}</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+          <div class="answer-label">${editingThis ? 'Editing answer — save to update' : (answers.length ? 'Add another answer' : 'Answer')}</div>
+          ${editingThis ? '<button type="button" class="action-btn btn-cancel-ans-edit" onclick="cancelEditAnswer()">Cancel edit</button>' : ''}
+        </div>
         <div class="answer-paste-preview" id="ans-prev-${q.id}"></div>
         ${instructorFormatToolbarHtml('ans-' + q.id)}
         <textarea class="answer-box" id="ans-${q.id}" placeholder="Type your answer here… Paste links or screenshots (images upload to Firebase Storage)."></textarea>
@@ -1544,22 +1654,66 @@ function renderQuestions() {
   fillFmtEmojiPickerGrids();
 }
 
+function beginEditAnswer(qId, index) {
+  const q = findInstructorQuestionById(qId);
+  if (!q) return;
+  const answers = getQuestionAnswersArray(q);
+  const a = answers[index];
+  if (!a) return;
+  answerEditState = { qId, index };
+  answerDrafts[qId] = a.text || '';
+  pendingAnswerImages[qId] = Array.isArray(a.imageUrls) ? [...a.imageUrls] : [];
+  renderQuestions();
+  const ta = document.getElementById('ans-' + qId);
+  if (ta) {
+    try {
+      ta.focus();
+    } catch (e) {}
+  }
+}
+
+function cancelEditAnswer() {
+  if (!answerEditState) return;
+  const { qId } = answerEditState;
+  answerEditState = null;
+  delete answerDrafts[qId];
+  delete pendingAnswerImages[qId];
+  renderQuestions();
+}
+
 function saveAnswer(id) {
   const text = (document.getElementById('ans-'+id) && document.getElementById('ans-'+id).value) || '';
   const imgs = pendingAnswerImages[id] && pendingAnswerImages[id].length ? [...pendingAnswerImages[id]] : [];
   if (!text.trim() && !imgs.length) return;
   const q = findInstructorQuestionById(id);
   if (!q) return;
-  const newAnswer = { instructor: currentInstructor || 'Instructor', text: text.trim() || (imgs.length ? '(Image)' : ''), ts: new Date().toISOString() };
-  if (imgs.length) newAnswer.imageUrls = imgs;
-  const answers = q.answers ? [...q.answers] : (q.answer ? [{ instructor: 'Instructor', text: q.answer, ts: null }] : []);
-  answers.push(newAnswer);
+  const isEdit = !!(answerEditState && answerEditState.qId === id && answerEditState.index != null);
+  const wasEdit = isEdit;
+  let answers = getQuestionAnswersArray(q);
+  if (isEdit) {
+    const idx = answerEditState.index;
+    if (idx < 0 || idx >= answers.length) return;
+    const prev = answers[idx];
+    const next = {
+      instructor: prev.instructor || (currentInstructor || 'Instructor'),
+      text: text.trim() || (imgs.length ? '(Image)' : ''),
+      ts: new Date().toISOString(),
+    };
+    if (imgs.length) next.imageUrls = imgs;
+    answers = [...answers];
+    answers[idx] = next;
+    answerEditState = null;
+  } else {
+    const newAnswer = { instructor: currentInstructor || 'Instructor', text: text.trim() || (imgs.length ? '(Image)' : ''), ts: new Date().toISOString() };
+    if (imgs.length) newAnswer.imageUrls = imgs;
+    answers.push(newAnswer);
+  }
   delete pendingAnswerImages[id];
   if (isDemoMode) {
     q.answers = answers; q.answer = ''; q.status = 'answered';
     delete answerDrafts[id];
     renderQuestions(); updateStats();
-    showToast('Answer saved!');
+    showToast(wasEdit ? 'Answer updated.' : 'Answer saved!');
     return;
   }
   db.collection('sessions').doc(activeSessionCode).collection('questions').doc(id).update({
@@ -1568,25 +1722,34 @@ function saveAnswer(id) {
     delete answerDrafts[id];
     const ta = document.getElementById('ans-' + id);
     if (ta) ta.value = '';
-    showToast('Answer saved!');
+    showToast(wasEdit ? 'Answer updated.' : 'Answer saved!');
   });
 }
 
 function deleteAnswer(qId, index) {
   const q = findInstructorQuestionById(qId);
   if (!q) return;
-  const answers = q.answers ? [...q.answers] : [];
+  let answers = getQuestionAnswersArray(q);
+  if (index < 0 || index >= answers.length) return;
+  if (answerEditState && answerEditState.qId === qId && answerEditState.index === index) {
+    answerEditState = null;
+    delete answerDrafts[qId];
+    delete pendingAnswerImages[qId];
+  } else if (answerEditState && answerEditState.qId === qId && answerEditState.index > index) {
+    answerEditState = { qId, index: answerEditState.index - 1 };
+  }
   answers.splice(index, 1);
   const status = answers.length ? 'answered' : 'pending';
   if (isDemoMode) {
     q.answers = answers;
+    q.answer = '';
     q.status = status;
     if (status === 'pending') delete q.answeredVerbally;
     renderQuestions(); updateStats();
     showToast('Answer removed.');
     return;
   }
-  const patch = { answers, status };
+  const patch = { answers, answer: '', status };
   if (status === 'pending') patch.answeredVerbally = false;
   db.collection('sessions').doc(activeSessionCode).collection('questions').doc(qId).update(patch)
     .then(() => showToast('Answer removed.'));
@@ -2544,6 +2707,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initInstructorSidebarResizer();
   document.getElementById('signin-pin').addEventListener('keydown', e => { if (e.key==='Enter') instructorLogin(); });
   document.getElementById('reg-pin2').addEventListener('keydown', e => { if (e.key==='Enter') instructorRegister(); });
+  const joinCodeEl = document.getElementById('join-session-code');
+  if (joinCodeEl) {
+    joinCodeEl.addEventListener('input', function () { syncJoinSuffixInput(this); });
+    joinCodeEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') instructorJoinSession(); });
+  }
   let instrSearchTimer = null;
   const isSearch = document.getElementById('instr-questions-search');
   if (isSearch) {
@@ -2728,6 +2896,8 @@ Object.assign(globalThis, {
   selectSession,
   hideSessionFromList,
   deleteAnswer,
+  beginEditAnswer,
+  cancelEditAnswer,
   saveAnswer,
   togglePin,
   setStatus,

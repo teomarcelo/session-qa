@@ -1086,6 +1086,17 @@
   .action-btn:hover { border-color: currentColor; }
   .action-btn.btn-answer { color: var(--accent); }
   .action-btn.btn-answer:hover { background: var(--accent-light); }
+  .action-btn.btn-cancel-ans-edit {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    border-color: var(--border);
+    background: var(--surface2);
+  }
+  .action-btn.btn-cancel-ans-edit:hover {
+    color: var(--text);
+    background: var(--border);
+  }
   .action-btn.btn-pin { color: var(--pin); }
   .action-btn.btn-pin:hover { background: var(--pin-light); }
   .action-btn.btn-done { color: var(--success); }
@@ -1129,6 +1140,51 @@
   .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; }
   .btn-ghost { padding: 0.55rem 1.1rem; background: none; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
   .btn-danger { padding: 0.55rem 1.1rem; background: var(--danger); color: white; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer; }
+
+  /* Join session: fixed SQA- + suffix (legacy TDX full code in suffix hides the prefix). */
+  .join-code-row {
+    display: flex;
+    align-items: stretch;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    overflow: hidden;
+    min-height: 2.65rem;
+  }
+  .join-code-row:focus-within {
+    border-color: var(--accent);
+    background: white;
+  }
+  .join-code-prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 0.1rem 0 0.65rem;
+    font-family: 'DM Mono', ui-monospace, monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    flex-shrink: 0;
+    user-select: none;
+    letter-spacing: 0;
+  }
+  .join-code-row--legacy-tdx .join-code-prefix {
+    display: none;
+  }
+  .join-code-row .join-code-suffix.mini-input {
+    border: none;
+    border-radius: 0;
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    font-family: 'DM Mono', ui-monospace, monospace;
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .field .join-code-row .join-code-suffix:focus {
+    box-shadow: none;
+    outline: none;
+  }
 
   /* Avoid a flash of the login screen on hard refresh when session is restored (class set by inline script below). */
   html.instr-restoring-session #login-screen {

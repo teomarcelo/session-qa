@@ -24,6 +24,10 @@ Live Q&A for trainings and events. Instructors run a session with a short code; 
 
 `dist/` is listed in `.gitignore`; ship the build artifact to hosting rather than committing it.
 
+### GitHub Pages (quick path)
+
+This repo includes **`.github/workflows/deploy-pages.yml`**: on every push to **`main`**, GitHub Actions runs **`npm ci`** + **`npm run build`** and publishes **`dist/`** to Pages. Full click-by-click steps are in **`SETUP.md` → Step 4 → Option B — GitHub Pages (GitHub Actions)`**.
+
 ---
 
 ## Changelog / timeline
@@ -34,11 +38,11 @@ For a **dated history** (fixes, UI tweaks, rich text, toolbars), see **`CHANGELO
 
 ## Students (attendees)
 
-- Join with a session code (e.g. `SQA-XXXX`). On desktop, **Sort**, **Stats**, and **Session** sit in the right column; the question feed stays on the left (narrow screens stack the sidebar first so controls stay near the top). A **narrow strip** between the columns is the resize handle: **drag** to change width, **double-click** to collapse or expand the sidebar (saved in this browser).
+- Join with a session code: **`SQA-`** is a fixed label and you type the last four characters (or paste a full **`SQA-`** / legacy **`TDX-`** code in the field). On desktop, **Sort**, **Stats**, and **Session** sit in the right column; the question feed stays on the left (narrow screens stack the sidebar first so controls stay near the top). A **narrow strip** between the columns is the resize handle: **drag** to change width, **double-click** to collapse or expand the sidebar (saved in this browser).
 - Optional name, or post as **Anonymous** (non-anonymous names are remembered in this browser).
 - **Same browser:** a stable **student id** and your **last session code** are stored locally so a normal page refresh reopens the board without typing the code again (until **Leave**). That id is the `authorId` on your questions and votes—not your display name—so retyping the same name does not create a second “you” in Firebase.
 - Ask questions, **edit your own** questions while in the same browser session, **upvote** any question.
-- See session details (title, room, time, description) and optional **Important** (session sidebar note) in the **Session** column on the right. On narrow screens the sidebar stacks first, then the ask box and question feed. Filters (all / pinned / answered / unanswered) and **sort by newest or by votes** (votes sort applies to **loaded** questions only if you have not loaded older pages).
+- See session details (title, room, time, description) in the **Session** column on the right. **Instructor notes** (when the host enables them): an **Instructor notes** pill on the **same row** as All / Pinned / Unanswered / Answered / **Most votes** — click to swap the main feed between **questions** and **notes** (click again, or any filter, to return to Q&A). **Most votes** toggles vote order vs newest-first (default). **Top pagination** sits **under** that filter row, then the question list (and bottom pagination). On narrow screens the sidebar stacks first, then the ask box and feed. Vote sort applies to **loaded** questions only if you have not loaded older pages.
 - Questions load in **pages** of 25 with **Load older**; the board **polls** about every 10s (your own submit or edit refreshes immediately). **Refresh** next to Search/Clear runs the same fetch on demand for that student only.
 - The **Format** row above the ask box (and in **Edit**) inserts Slack-style markers: bold, italic, strikethrough, inline code, code blocks, and common emojis; `https://` links still auto-link when posted. On the board, **fenced and inline code** in rendered messages show a small **copy** control (same idea as the instructor view).
 - **Paste screenshots** into the ask box (students) or answer box (instructors): images resize, upload to **Firebase Storage**, and show as attachments after submit (requires Storage enabled + rules — see `SETUP.md`).
@@ -49,9 +53,9 @@ For a **dated history** (fixes, UI tweaks, rich text, toolbars), see **`CHANGELO
 ## Instructors
 
 - **Account:** display name + PIN (PIN is stored hashed in Firestore; see `SETUP.md` for limits).
-- **Sessions:** create a session (code generated for you), edit session info, copy the code for students. Co-instructors can **join an existing session** with the same code. You can **hide a session from your own sidebar** (Firestore keeps the session; **join again** with the code to put it back on your list).
-- **Session sidebar note** (“Important”): optional title, message, and `https://` image URLs for the student **Session** panel; Slack-style formatting; format toolbar on the message field.
-- **Survey / feedback shortcut:** Under **Session settings**, optional **https** survey link plus **Survey ID** text. When both are set, students see a **SURVEY** button on the **Session** card (opens the link in a new tab and copies the ID).
+- **Sessions:** create a session (code generated for you) with the same fields as **Session settings** (including OrgClaim and survey), then tweak anytime in the sidebar; copy the code for students. Co-instructors can **join an existing session** with the same code. You can **hide a session from your own sidebar** (Firestore keeps the session; **join again** with the code to put it back on your list).
+- **Instructor Notes** (sidebar section title): optional title, message, optional named links (editor), and `https://` image URLs; **Show in student dashboard** checkbox; Slack-style formatting; format toolbar on the message field. Students see notes only when they open the **Instructor notes** feed toggle (not mixed into the question list). Instructors can **edit** a previously saved answer on a thread.
+- **OrgClaim & survey shortcuts:** **OrgClaim** link (defaults to `http://sfdc.co/OrgClaim` on save) plus **OrgClaim code** — students always see **OrgClaim**; if the code is empty, **OrgClaim Code:** is shown with no value after it. **SURVEY** is hidden without a Survey ID and https link.
 - **During class:** answer (including follow-up answers); **Answered verbally** and **Mark pending** are separate controls (always visible—order: Save answer → Answered verbally → Pin → Mark pending → Delete); **pin** and **delete** questions. The newest **25** questions update **live**; use **Load older questions** for earlier posts. Draft answers are kept when the list refreshes. Rendered **code** (inline and fenced) in threads includes a **copy** control for students. Status badges can show **Answered verbally** (live/in-app mark) and/or **Answered** when there is a written reply.
 - **Demo mode:** try the UI with sample data and no Firebase (button on the login screen).
 

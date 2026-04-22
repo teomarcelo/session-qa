@@ -1,4 +1,4 @@
-/** Max “Important” sidebar notes per session (Firestore array size guard). */
+/** Max instructor notes per session (Firestore array size guard). */
 export const SESSION_SIDEBAR_NOTES_MAX = 15;
 /** Max named https links stored on a single session note. */
 export const SESSION_NOTE_LINKS_MAX = 12;
@@ -62,8 +62,7 @@ export function getStudentVisibleSessionNotes(s) {
     n => n.show !== false && (
       String(n.title || '').trim() ||
       String(n.body || '').trim() ||
-      (n.imageUrls || []).length ||
-      (n.links || []).length
+      (n.imageUrls || []).length
     )
   );
 }

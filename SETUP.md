@@ -4,7 +4,7 @@
 - `student.html` / `instructor.html` — Page shells (**Fuse** from CDN; **Firebase** is bundled from `src/lib/firebaseCompat.js` with Vite; app logic in `src/`)
 - `src/` — Bundled app logic, styles, and default Firebase config (`src/config/firebase.js`)
 
-**Rich text (no extra Firebase setup):** Session sidebar (“Important”) note, questions, and answers support **Slack-style** markers in plain text (`*bold*`, `` `code` ``, fenced blocks, `https://` links). The app renders them in the browser; stored values are still normal strings on the session or question documents. **Copy** controls on rendered code and the **⋯** emoji grid are UI-only (no extra fields).
+**Rich text (no extra Firebase setup):** Session **Instructor Notes** (student board: toggle on the filter row), questions, and answers support **Slack-style** markers in plain text (`*bold*`, `` `code` ``, fenced blocks, `https://` links). The app renders them in the browser; stored values are still normal strings on the session or question documents. **Copy** controls on rendered code and the **⋯** emoji grid are UI-only (no extra fields).
 
 ---
 
@@ -74,25 +74,27 @@ service cloud.firestore {
 > motivated user could delete questions or change data unless you add **Firebase Authentication**
 > and tighten rules (e.g. only signed-in instructors may `delete` or update session docs).
 
-### Session sidebar notes (“Important” for students)
+### Instructor notes for students (Instructor Notes in the sidebar editor)
 
 Optional fields on the same `sessions/{code}` document:
 
-- `sessionNoteShow` (boolean — when `false`, the whole Important block is hidden for students)
-- `sessionNotes` (array, max **15** — preferred): each item `{ id, order, title, body, imageUrls[], links[], show }`. Order is the display order; `show: false` hides that card only. Title, body, image URLs, and **named links** are independent per note. Each link is `{ url, label? }` with `https://` URLs only (max **12** links per note). Slack-style body text is rendered client-side; `imageUrls` must be `https://` only.
+- `sessionNoteShow` (boolean — when `false`, **Instructor Notes** are hidden on the student board)
+- `sessionNotes` (array, max **15** — preferred): each item `{ id, order, title, body, imageUrls[], links[], show }`. Order is the display order; `show: false` hides that card only. Title, body, image URLs, and **named links** (`links[]`) are stored per note for instructors; **students** see title, body, and images only (not the named link list). Each link is `{ url, label? }` with `https://` URLs only (max **12** links per note). Slack-style body text is rendered client-side; `imageUrls` must be `https://` only.
 
 Legacy single-note fields (still read if `sessionNotes` is missing or empty):
 
 - `sessionNoteTitle`, `sessionNoteBody`, `sessionNoteImageUrls` (same semantics as one note)
 
-### Survey / feedback button (student Session card)
+### OrgClaim & Survey buttons (student Session card)
 
 Optional fields on `sessions/{code}` (set from **Instructor → Session settings**):
 
-- **`studentSurveyUrl`** — must be **`https://…`** if you want the student control to appear.
-- **`studentSurveyCopyText`** — the **Survey ID** (plain text, can be multiple lines). Shown under the **SURVEY** button and copied when the student clicks it.
+- **`studentOrgClaimUrl`** — **`http://…`** or **`https://…`**. New sessions (and saves with an empty link field) store **`http://sfdc.co/OrgClaim`** by default.
+- **`studentOrgClaimCopyText`** — **OrgClaim code** (single-line plain text). If empty after save, the student Session card still shows **OrgClaim** with **OrgClaim Code:** and a blank value (nothing is inferred from the Survey ID).
+- **`studentSurveyUrl`** — must be **`https://…`** if you want **SURVEY** to appear.
+- **`studentSurveyCopyText`** — **Survey ID** (single-line plain text). Shown under **SURVEY** and copied on click.
 
-The student **Session** sidebar shows **SURVEY** only when the URL passes the app’s **`https:`** check **and** the survey ID text is non-empty after trim. On click, the app opens the URL in a **new tab** first (same gesture), then copies the survey ID. Older sessions may still contain **`studentSurveyButtonLabel`** in Firestore; the app ignores it and the next **Save session info** removes that field.
+The student **Session** sidebar always shows **OrgClaim** (above **SURVEY**); the OrgClaim URL defaults when unset. **SURVEY** appears only when the survey URL is **`https:`** and Survey ID is non-empty. Older sessions may still contain **`studentSurveyButtonLabel`** in Firestore; the app ignores it and the next **Save session info** removes that field.
 
 ### Question pagination
 
@@ -185,9 +187,40 @@ Local development: **`npm run dev`** then open **`http://localhost:5173/`** (sma
    - `https://your-app.netlify.app/student.html` ← share with students
    - `https://your-app.netlify.app/instructor.html` ← instructors only
 
-### Option B — GitHub Pages
-1. Build locally with **`npm run build`**, then publish the **`dist/`** contents (e.g. push `dist` output to `gh-pages` branch, or use a GitHub Action that runs `npm ci && npm run build` and uploads `dist/`).
-2. Your URLs: `https://username.github.io/repo-name/student.html` (adjust if you use a custom Pages URL).
+### Option B — GitHub Pages (GitHub Actions)
+
+This repo ships **`.github/workflows/deploy-pages.yml`**, which builds with **Node 20** and deploys the **`dist/`** folder whenever you push to **`main`** (or run the workflow manually).
+
+#### One-time GitHub setup
+
+1. **Create the repo** on GitHub (empty is fine) and **push this project** (replace `YOUR-ORG` / `YOUR-REPO`):
+
+   ```bash
+   git remote add origin https://github.com/YOUR-ORG/YOUR-REPO.git
+   git push -u origin main
+   ```
+
+   If your default branch is **`master`**, either rename it to **`main`** in GitHub (**Settings → General → Default branch**) or edit **`.github/workflows/deploy-pages.yml`** so `branches: [main]` matches your branch name.
+
+2. **Firebase at build time:** `npm run build` reads **`src/config/firebase.js`** (or **`VITE_FIREBASE_*`** env vars). For a public repo, prefer **GitHub Actions secrets**: repo **Settings → Secrets and variables → Actions → New repository secret** for each of `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, then add an `env:` block to the **`npm run build`** step in the workflow file mapping `secrets.VITE_FIREBASE_API_KEY` → `VITE_FIREBASE_API_KEY`, etc. If you skip secrets, the committed config in **`firebase.js`** is what the Action build uses.
+
+3. **Turn on GitHub Pages from Actions:** Repo **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). Save if prompted.
+
+4. **First deploy:** Push to **`main`** (or **Actions → Deploy to GitHub Pages → Run workflow**). Open the workflow run; when it is green, **Settings → Pages** will show the **site URL** (often `https://<user>.github.io/<repo>/`).
+
+5. **Optional first-time prompt:** If GitHub asks you to **configure** the **`github-pages`** environment, approve it (**Settings → Environments → github-pages**).
+
+#### URLs to bookmark after deploy
+
+- Hub: `https://<user>.github.io/<repo>/` (opens **`index.html`**)
+- Students: `https://<user>.github.io/<repo>/student.html`
+- Instructors: `https://<user>.github.io/<repo>/instructor.html`
+
+**Storage CORS:** Add your real **`https://<user>.github.io`** origin to **`storage-cors.json`** and run **`gsutil cors set …`** (see **Storage CORS** above), or image uploads may fail from the deployed site.
+
+#### Manual alternative (no Actions)
+
+From your machine: **`npm run build`**, then upload the contents of **`dist/`** to any static host (or push **`dist`** to a **`gh-pages`** branch with only that folder’s contents at root). The Actions workflow avoids committing **`dist/`**.
 
 ---
 
@@ -196,8 +229,8 @@ Local development: **`npm run dev`** then open **`http://localhost:5173/`** (sma
 1. Open **`instructor.html`** (from `npm run dev` during development, or from **`dist/instructor.html`** after `npm run build` when hosted)
 2. First time: click **Create an account** → enter your name and choose a PIN
 3. Return visits: sign in with your name and PIN
-4. Click **+ New session** — a unique code like `SQA-A7K2` is generated automatically
-5. Fill in session details (name, room, date/time, description) → **Save session info**
+4. Click **+ New session** — the modal matches **Session settings** (session name, date/time, room, description, OrgClaim, survey link/ID). A code like `SQA-A7K2` is generated when you **Create session**; those values load into **Session settings** in the sidebar automatically.
+5. You can still change anything later in **Session settings** → **Save session info**
 6. Share the session code with students — they go to `student.html` and enter the code
 7. Students ask questions, upvote, and see your answers update in real time
 

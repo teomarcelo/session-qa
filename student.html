@@ -29,10 +29,13 @@
       <span class="join-logo-text">Session Q&amp;A</span>
     </div>
     <h1 class="join-title">Join your session</h1>
-    <p class="join-sub">Enter the session code your host shared to open the Q&amp;A board. This browser reopens your last session after a refresh until you tap <strong>Leave</strong>.</p>
+    <p class="join-sub"><strong>SQA-</strong> is fixed on the left — type the last <strong>four</strong> characters, or paste a full <strong>SQA-</strong> or legacy <strong>TDX-</strong> code (the label hides for TDX). This browser reopens your last session after a refresh until you tap <strong>Leave</strong>.</p>
     <div class="field">
-      <label>Session code</label>
-      <input id="code-input" class="code-input" type="text" placeholder="SQA-XXXX" maxlength="8" autocomplete="off">
+      <label for="code-input">Session code</label>
+      <div class="join-code-row" id="student-join-code-row">
+        <span class="join-code-prefix" aria-hidden="true">SQA-</span>
+        <input id="code-input" class="code-input code-input--suffix" type="text" maxlength="8" inputmode="text" placeholder="AB12" autocomplete="off" spellcheck="false">
+      </div>
     </div>
     <div class="field">
       <label>Your name <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-light)">(optional)</span></label>
@@ -97,12 +100,12 @@
         </div>
       </div>
 
-      <!-- Questions -->
-      <div id="student-pagination-top" class="q-pagination-num-wrap" aria-label="Question pages"></div>
-      <div class="questions-search-row">
-        <input type="search" id="questions-search" class="questions-search-input" placeholder="Search questions…" autocomplete="off" aria-label="Search questions and answers" />
-        <button type="button" class="load-more-btn" onclick="clearStudentSearch()">Clear</button>
-        <button type="button" class="refresh-btn refresh-btn--compact" id="refresh-now-btn" onclick="studentRefreshNow()" title="Fetch the latest questions now">Refresh</button>
+      <div class="student-qa-list-chrome">
+        <div class="questions-search-row">
+          <input type="search" id="questions-search" class="questions-search-input" placeholder="Search questions…" autocomplete="off" aria-label="Search questions and answers" />
+          <button type="button" class="load-more-btn" onclick="clearStudentSearch()">Clear</button>
+          <button type="button" class="refresh-btn refresh-btn--compact" id="refresh-now-btn" onclick="studentRefreshNow()" title="Fetch the latest questions now">Refresh</button>
+        </div>
       </div>
       <div class="student-q-toolbar" id="student-q-toolbar" aria-label="Filter and sort questions">
         <div class="student-q-toolbar-btns">
@@ -110,18 +113,25 @@
           <button type="button" class="filter-btn" data-filter="pinned" onclick="setFilter('pinned',this)">Pinned</button>
           <button type="button" class="filter-btn" data-filter="unanswered" onclick="setFilter('unanswered',this)">Unanswered</button>
           <button type="button" class="filter-btn" data-filter="answered" onclick="setFilter('answered',this)">Answered</button>
+          <button type="button" class="filter-btn" id="student-sort-votes-btn" aria-pressed="false" title="Toggle sort: off = newest first, on = most votes first" onclick="toggleStudentSortVotes(this)">Most votes</button>
           <span class="student-q-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" class="filter-btn active" data-sort="recent" onclick="setSort('recent',this)">Most recent</button>
-          <button type="button" class="filter-btn" data-sort="votes" onclick="setSort('votes',this)">Most votes</button>
+          <button type="button" class="filter-btn is-hidden" id="student-feed-notes-toggle" aria-pressed="false" aria-controls="student-notes-feed-panel" onclick="toggleStudentInstructorNotes(this)">Instructor notes</button>
         </div>
       </div>
-      <div id="questions-list">
-        <div class="empty-state">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <p>No questions yet. Be the first to ask!</p>
+      <div class="student-qa-list-chrome">
+        <div id="student-pagination-top" class="q-pagination-num-wrap" aria-label="Question pages"></div>
+        <div id="questions-list">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <p>No questions yet. Be the first to ask!</p>
+          </div>
         </div>
+        <div id="student-pagination-bottom" class="q-pagination-num-wrap" aria-label="Question pages"></div>
       </div>
-      <div id="student-pagination-bottom" class="q-pagination-num-wrap" aria-label="Question pages"></div>
+
+      <div id="student-notes-feed-panel" class="student-notes-feed-panel is-hidden" role="region" aria-labelledby="student-feed-notes-toggle" aria-live="polite">
+        <div id="session-notes-list" class="session-notes-list"></div>
+      </div>
     </div>
 
     <div
@@ -171,48 +181,48 @@
             <span id="si-room-text">—</span>
           </div>
           <div class="session-card-desc" id="si-desc"></div>
+          <div id="student-orgclaim-launch-wrap" class="student-survey-launch-wrap">
+            <button type="button" class="student-survey-launch-btn" id="student-orgclaim-launch-btn">OrgClaim</button>
+            <div class="student-survey-launch-help" id="student-orgclaim-launch-help" aria-live="polite"></div>
+          </div>
           <div id="student-survey-launch-wrap" class="student-survey-launch-wrap" style="display:none;">
             <button type="button" class="student-survey-launch-btn" id="student-survey-launch-btn">SURVEY</button>
             <div class="student-survey-launch-help" id="student-survey-launch-help" aria-live="polite"></div>
-          </div>
-          <div id="session-note-wrap" class="session-note-wrap" style="display:none;" aria-live="polite">
-            <div class="session-note-label">Important</div>
-            <div id="session-notes-list" class="session-notes-list"></div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Edit modal -->
-<div class="modal-overlay" id="edit-modal">
-  <div class="modal">
-    <div class="modal-title">Edit your question</div>
-    <div class="format-toolbar" role="toolbar" aria-label="Insert formatting">
-      <span class="format-toolbar-label">Format</span>
-      <div class="format-toolbar-rail">
-        <button type="button" class="fmt-btn fmt-btn-b" title="Bold (*text*)" aria-label="Bold" onclick="insertSlackFormat('edit-text','bold')"><strong>B</strong></button>
-        <button type="button" class="fmt-btn fmt-btn-i" title="Italic (_text_)" aria-label="Italic" onclick="insertSlackFormat('edit-text','italic')"><em>I</em></button>
-        <button type="button" class="fmt-btn fmt-btn-s" title="Strikethrough (~text~)" aria-label="Strikethrough" onclick="insertSlackFormat('edit-text','strike')"><span style="text-decoration:line-through;">S</span></button>
-        <button type="button" class="fmt-btn fmt-btn-mono" title="Inline code (`text`)" aria-label="Inline code" onclick="insertSlackFormat('edit-text','code')">`</button>
-        <button type="button" class="fmt-btn fmt-btn-mono" title="Code block (triple backticks)" aria-label="Code block" onclick="insertSlackFormat('edit-text','fenced')">{ }</button>
-        <span class="fmt-sep" aria-hidden="true"></span>
-        <button type="button" class="fmt-btn fmt-emoji" title="Thumbs up" aria-label="Insert thumbs up" onclick="insertEmoji('edit-text','👍')">👍</button>
-        <button type="button" class="fmt-btn fmt-emoji" title="Clap" aria-label="Insert clap" onclick="insertEmoji('edit-text','👏')">👏</button>
-        <button type="button" class="fmt-btn fmt-emoji" title="Check" aria-label="Insert check mark" onclick="insertEmoji('edit-text','✅')">✅</button>
-        <button type="button" class="fmt-btn fmt-emoji" title="Light bulb" aria-label="Insert light bulb" onclick="insertEmoji('edit-text','💡')">💡</button>
-        <button type="button" class="fmt-btn fmt-emoji" title="Question" aria-label="Insert question mark" onclick="insertEmoji('edit-text','❓')">❓</button>
-        <details class="fmt-emoji-more" id="edit-text-emoji-more">
-          <summary class="fmt-more-summary" title="More emojis — opens below or above to fit (Unicode)">⋯</summary>
-          <div class="fmt-emoji-grid" data-emoji-picker-autofill data-emoji-target-id="edit-text" role="group" aria-label="More emojis"></div>
-        </details>
+  <!-- Inside #app-screen so this stays hidden with the shell before CSS loads (e.g. GitHub Pages). -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <div class="modal-title">Edit your question</div>
+      <div class="format-toolbar" role="toolbar" aria-label="Insert formatting">
+        <span class="format-toolbar-label">Format</span>
+        <div class="format-toolbar-rail">
+          <button type="button" class="fmt-btn fmt-btn-b" title="Bold (*text*)" aria-label="Bold" onclick="insertSlackFormat('edit-text','bold')"><strong>B</strong></button>
+          <button type="button" class="fmt-btn fmt-btn-i" title="Italic (_text_)" aria-label="Italic" onclick="insertSlackFormat('edit-text','italic')"><em>I</em></button>
+          <button type="button" class="fmt-btn fmt-btn-s" title="Strikethrough (~text~)" aria-label="Strikethrough" onclick="insertSlackFormat('edit-text','strike')"><span style="text-decoration:line-through;">S</span></button>
+          <button type="button" class="fmt-btn fmt-btn-mono" title="Inline code (`text`)" aria-label="Inline code" onclick="insertSlackFormat('edit-text','code')">`</button>
+          <button type="button" class="fmt-btn fmt-btn-mono" title="Code block (triple backticks)" aria-label="Code block" onclick="insertSlackFormat('edit-text','fenced')">{ }</button>
+          <span class="fmt-sep" aria-hidden="true"></span>
+          <button type="button" class="fmt-btn fmt-emoji" title="Thumbs up" aria-label="Insert thumbs up" onclick="insertEmoji('edit-text','👍')">👍</button>
+          <button type="button" class="fmt-btn fmt-emoji" title="Clap" aria-label="Insert clap" onclick="insertEmoji('edit-text','👏')">👏</button>
+          <button type="button" class="fmt-btn fmt-emoji" title="Check" aria-label="Insert check mark" onclick="insertEmoji('edit-text','✅')">✅</button>
+          <button type="button" class="fmt-btn fmt-emoji" title="Light bulb" aria-label="Insert light bulb" onclick="insertEmoji('edit-text','💡')">💡</button>
+          <button type="button" class="fmt-btn fmt-emoji" title="Question" aria-label="Insert question mark" onclick="insertEmoji('edit-text','❓')">❓</button>
+          <details class="fmt-emoji-more" id="edit-text-emoji-more">
+            <summary class="fmt-more-summary" title="More emojis — opens below or above to fit (Unicode)">⋯</summary>
+            <div class="fmt-emoji-grid" data-emoji-picker-autofill data-emoji-target-id="edit-text" role="group" aria-label="More emojis"></div>
+          </details>
+        </div>
       </div>
-    </div>
-    <textarea id="edit-text" style="width:100%;min-height:100px;padding:0.75rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.95rem;resize:vertical;outline:none;"></textarea>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeEdit()">Cancel</button>
-      <button class="btn-submit" onclick="saveEdit()">Save</button>
+      <textarea id="edit-text" style="width:100%;min-height:100px;padding:0.75rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.95rem;resize:vertical;outline:none;"></textarea>
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="closeEdit()">Cancel</button>
+        <button class="btn-submit" onclick="saveEdit()">Save</button>
+      </div>
     </div>
   </div>
 </div>

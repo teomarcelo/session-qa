@@ -78,12 +78,56 @@
     background: white;
   }
   .field .hint { font-size: 0.8rem; color: var(--text-light); margin-top: 0.3rem; }
+  .join-code-row {
+    display: flex;
+    align-items: center;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #faf9f7;
+    overflow: hidden;
+    min-height: 3rem;
+  }
+  .join-code-row:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+    background: white;
+  }
+  .join-code-prefix {
+    font-family: 'DM Mono', ui-monospace, monospace;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--text);
+    padding: 0 0.15rem 0 0.75rem;
+    flex-shrink: 0;
+    user-select: none;
+    letter-spacing: 0;
+  }
+  .join-code-row--legacy-tdx .join-code-prefix {
+    display: none;
+  }
   .code-input {
-    font-family: 'DM Mono', monospace !important;
-    font-size: 1.4rem !important;
-    letter-spacing: 0.2em;
+    font-family: 'DM Mono', ui-monospace, monospace !important;
+    font-size: 1.35rem !important;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
-    text-align: center;
+  }
+  .code-input--suffix {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-align: left;
+    padding: 0.55rem 0.75rem 0.55rem 0.25rem !important;
+    letter-spacing: 0.03em;
+  }
+  .field .join-code-row input.code-input--suffix {
+    width: auto;
+  }
+  .field .join-code-row .code-input--suffix:focus {
+    box-shadow: none;
+    outline: none;
   }
   .btn-primary {
     width: 100%;
@@ -248,6 +292,9 @@
   .student-survey-launch-wrap {
     margin-top: 0.65rem;
   }
+  .student-survey-launch-wrap + .student-survey-launch-wrap {
+    margin-top: 0.45rem;
+  }
   .student-survey-launch-help {
     margin-top: 0.45rem;
     font-size: 0.8rem;
@@ -295,19 +342,19 @@
   .session-meta { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
   .session-meta svg { flex-shrink: 0; }
 
-  .session-note-wrap {
-    grid-column: 1 / -1;
-    margin-top: 0.5rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
+  .student-qa-list-chrome.is-hidden {
+    display: none !important;
   }
-  .session-note-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--accent);
-    margin-bottom: 0.35rem;
+  .student-notes-feed-panel.is-hidden {
+    display: none !important;
+  }
+  .student-notes-feed-panel {
+    margin: 0 0 1rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    min-height: 4rem;
   }
   .session-notes-list {
     display: flex;
@@ -319,6 +366,10 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+  }
+  .student-notes-feed-panel .session-note-card {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
   }
   .session-note-title {
     font-size: 0.92rem;
@@ -333,23 +384,6 @@
     color: var(--text);
     white-space: pre-wrap;
     word-break: break-word;
-  }
-  .session-note-links {
-    list-style: none;
-    margin: 0.5rem 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-  .session-note-link-item {
-    font-size: 0.84rem;
-    line-height: 1.4;
-  }
-  .session-note-link-item a {
-    color: var(--accent);
-    text-decoration: underline;
-    word-break: break-all;
   }
   .session-note-images { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.55rem; }
   .session-note-images img {
@@ -370,6 +404,10 @@
   }
   .student-q-toolbar {
     margin: 0 0 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
   }
   .student-q-toolbar-btns {
     display: flex;

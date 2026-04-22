@@ -6,18 +6,37 @@ import {
   IMAGE_MAX_EDGE,
   IMAGE_JPEG_QUALITY,
 } from '../constants/app.js';
-import { esc, linkify, formatRichMessage, isHttpsUrl, copyRichCodeBlock as runCopyRichCodeBlock } from '../lib/richText.js';
+import {
+  esc,
+  linkify,
+  formatRichMessage,
+  isHttpsUrl,
+  isHttpOrHttpsUrl,
+  copyRichCodeBlock as runCopyRichCodeBlock,
+} from '../lib/richText.js';
 import { createShowToast } from '../lib/toast.js';
 import { formatQuestionWhen } from '../lib/formatQuestionWhen.js';
 import { filterCorpusByFuseSearch } from '../lib/questionSearch.js';
 import { fetchSessionQuestionCountStats } from '../lib/sessionQuestionCounts.js';
 import { getStudentVisibleSessionNotes } from '../lib/sessionNotes.js';
+import { getEffectiveStudentOrgClaimUrl, getStudentOrgClaimCodeOnly } from '../lib/sessionLaunch.js';
+import {
+  SESSION_JOIN_PREFIX,
+  normalizeSessionCodeFromJoinInput,
+  syncJoinSuffixInput,
+  buildSessionCodeFromJoinRow,
+  setJoinRowFromSessionCode,
+  JOIN_CODE_ROW_CLASS,
+  JOIN_CODE_ROW_LEGACY_TDX_CLASS,
+} from '../lib/sessionCode.js';
 import { htmlAnsweredStatusBadges } from '../lib/answeredBadge.js';
 
 const showToast = createShowToast('toast');
 
 let db, sessionCode, userName, userEmail, userId, currentSession;
 let allQuestions = [], currentFilter = 'all', currentSort = 'recent';
+/** Main feed: questions list vs instructor notes (same slot, tab toggle). */
+let studentFeedView = 'qa';
 let editingId = null, unsubSession;
 let studentPollTimer = null;
 let studentPollSkipUntil = 0;
@@ -97,6 +116,8 @@ function tryAutoRejoinStudent() {
     var a = document.getElementById('app-screen');
     if (j) j.style.display = 'flex';
     if (a) a.style.display = 'none';
+    var ci = document.getElementById('code-input');
+    if (ci) setJoinRowFromSessionCode(ci, '');
   }
   if (!db) {
     bailToJoin();
@@ -111,7 +132,7 @@ function tryAutoRejoinStudent() {
     bailToJoin();
     return;
   }
-  var code = String(raw).trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  var code = normalizeSessionCodeFromJoinInput(String(raw).trim());
   if (!code) {
     safeLsRemove(LS_LAST_SESSION);
     safeLsRemove(LS_LAST_SESSION_LEGACY);
@@ -132,7 +153,7 @@ function tryAutoRejoinStudent() {
     userEmail = '';
     var codeEl = document.getElementById('code-input');
     var nameEl = document.getElementById('name-input');
-    if (codeEl) codeEl.value = code;
+    if (codeEl) setJoinRowFromSessionCode(codeEl, code);
     if (nameEl) nameEl.value = nm || '';
     enterApp();
   }).catch(function () { bailToJoin(); });
@@ -166,9 +187,22 @@ window.addEventListener('load', () => {
 });
 
 function joinSession() {
-  const raw = document.getElementById('code-input').value.trim().toUpperCase();
-  const code = raw.replace(/[^A-Z0-9-]/g,'');
-  if (!code) { showJoinError('Please enter a session code.'); return; }
+  const sufEl = document.getElementById('code-input');
+  const row = sufEl && sufEl.closest('.' + JOIN_CODE_ROW_CLASS);
+  const code = buildSessionCodeFromJoinRow(sufEl);
+  if (!code || code === SESSION_JOIN_PREFIX) {
+    showJoinError('Enter the four characters after SQA- (or paste a full TDX- code).');
+    return;
+  }
+  if (row && !row.classList.contains(JOIN_CODE_ROW_LEGACY_TDX_CLASS)) {
+    var suf = String(sufEl.value || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+    if (suf.length < 4) {
+      showJoinError('Enter all four characters after SQA-.');
+      return;
+    }
+  }
   userName = document.getElementById('name-input').value.trim() || 'Anonymous';
   userEmail = '';
   if (userName !== 'Anonymous') {
@@ -189,6 +223,50 @@ function joinSession() {
 
 function showJoinError(msg) { document.getElementById('join-error').textContent = msg; }
 
+/** Title for top bar + session card from session name. */
+function studentSessionDisplayTitle(s) {
+  if (!s) return '';
+  return String(s.sessionName || '').trim();
+}
+
+/** Apply Firestore session fields to UI (sidebar card, OrgClaim/Survey, notes, top bar). */
+function applyStudentSessionSnapshot(data) {
+  if (!data) return;
+  currentSession = data;
+  var bar = document.getElementById('bar-session-name');
+  if (bar) bar.textContent = studentSessionDisplayTitle(data) || 'Session';
+  renderSessionInfo(data);
+}
+
+function applyStudentFeedViewDom() {
+  var listChromeBlocks = document.querySelectorAll('.student-qa-list-chrome');
+  var notesPanel = document.getElementById('student-notes-feed-panel');
+  var toggleBtn = document.getElementById('student-feed-notes-toggle');
+  if (!listChromeBlocks.length || !notesPanel) return;
+  var notesAvailable = !!(toggleBtn && !toggleBtn.classList.contains('is-hidden'));
+  var showNotes = studentFeedView === 'notes' && notesAvailable;
+  listChromeBlocks.forEach(function (el) {
+    el.classList.toggle('is-hidden', showNotes);
+  });
+  notesPanel.classList.toggle('is-hidden', !showNotes);
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('active', showNotes);
+    toggleBtn.setAttribute('aria-pressed', showNotes ? 'true' : 'false');
+  }
+}
+
+function toggleStudentInstructorNotes(btn) {
+  var toggleBtn = document.getElementById('student-feed-notes-toggle');
+  if (!toggleBtn || toggleBtn.classList.contains('is-hidden')) return;
+  studentFeedView = studentFeedView === 'notes' ? 'qa' : 'notes';
+  applyStudentFeedViewDom();
+  if (btn && typeof btn.focus === 'function') {
+    try {
+      btn.focus();
+    } catch (e) {}
+  }
+}
+
 function enterApp() {
   clearStudentRestoringShell();
   studentSessionStatsSerial++;
@@ -201,24 +279,33 @@ function enterApp() {
   document.getElementById('app-screen').style.display = 'block';
   postAnonymously = (userName === 'Anonymous' || !userName);
   updateAnonToggle();
-  renderSessionInfo(currentSession);
-  document.getElementById('bar-session-name').textContent = currentSession.sessionName || currentSession.className || 'Session';
-  document.getElementById('bar-code').textContent = sessionCode;
+  if (typeof unsubSession === 'function') {
+    unsubSession();
+    unsubSession = undefined;
+  }
+  studentFeedView = 'qa';
+  applyStudentSessionSnapshot(currentSession);
+  var barCode = document.getElementById('bar-code');
+  if (barCode) barCode.textContent = sessionCode;
 
   questionPages = [];
   currentQuestionPage = 0;
   hasMoreOlder = false;
   studentOlderBeyondLoadExhausted = false;
   allQuestions = [];
+  currentSort = 'recent';
+  syncStudentSortVotesButton();
   var qsIn = document.getElementById('questions-search');
   if (qsIn) qsIn.value = '';
 
-  unsubSession = db.collection('sessions').doc(sessionCode).onSnapshot(snap => {
-    if (snap.exists) {
-      currentSession = snap.data();
-      renderSessionInfo(snap.data());
-    }
-  });
+  unsubSession = db.collection('sessions').doc(sessionCode).onSnapshot(
+    function (snap) {
+      if (snap.exists) applyStudentSessionSnapshot(snap.data());
+    },
+    function (err) {
+      console.warn('Student session listener error:', err);
+    },
+  );
 
   if (studentPollTimer) clearInterval(studentPollTimer);
   clearPendingQuestionImages();
@@ -254,7 +341,11 @@ function updateAnonToggle() {
 }
 
 function leaveSession() {
-  if (unsubSession) unsubSession();
+  closeEdit();
+  if (typeof unsubSession === 'function') {
+    unsubSession();
+    unsubSession = undefined;
+  }
   if (studentPollTimer) { clearInterval(studentPollTimer); studentPollTimer = null; }
   clearPendingQuestionImages();
   postAnonymously = true;
@@ -262,6 +353,7 @@ function leaveSession() {
   safeLsRemove(LS_LAST_SESSION_LEGACY);
   sessionCode = null;
   currentSession = null;
+  studentFeedView = 'qa';
   studentSessionStatsSerial++;
   clearStudentRestoringShell();
   document.getElementById('join-screen').style.display = 'flex';
@@ -269,6 +361,8 @@ function leaveSession() {
   document.getElementById('join-error').textContent = '';
   document.getElementById('join-btn').disabled = false;
   document.getElementById('join-btn').textContent = 'Join session';
+  var ciLeave = document.getElementById('code-input');
+  if (ciLeave) setJoinRowFromSessionCode(ciLeave, '');
 }
 
 function studentCopyPlainToClipboard(text) {
@@ -290,6 +384,59 @@ function studentCopyPlainToClipboard(text) {
       reject(e);
     }
   });
+}
+
+function wireStudentOrgClaimLaunch(s) {
+  const wrap = document.getElementById('student-orgclaim-launch-wrap');
+  const btn = document.getElementById('student-orgclaim-launch-btn');
+  const help = document.getElementById('student-orgclaim-launch-help');
+  if (!wrap || !btn || !help) return;
+  const sess = s || {};
+  const url = getEffectiveStudentOrgClaimUrl(sess);
+  const copyRaw = getStudentOrgClaimCodeOnly(sess).replace(/\r\n/g, '\n');
+  const copyText = copyRaw.trim();
+  wrap.style.display = 'block';
+  btn.textContent = 'OrgClaim';
+  btn.disabled = false;
+  help.textContent = '';
+  const line1 = document.createElement('div');
+  line1.className = 'student-survey-launch-help-line';
+  line1.appendChild(document.createTextNode('OrgClaim Code: '));
+  const idSpan = document.createElement('span');
+  idSpan.className = 'student-survey-launch-help-value';
+  idSpan.textContent = copyText ? copyRaw : '';
+  line1.appendChild(idSpan);
+  help.appendChild(line1);
+  const line2 = document.createElement('div');
+  line2.className = 'student-survey-launch-help-note';
+  line2.textContent = 'Clicking button above automatically copies OrgClaim code.';
+  help.appendChild(line2);
+
+  btn.onclick = function () {
+    if (!isHttpOrHttpsUrl(url)) {
+      showToast('OrgClaim link is not set to a valid http(s) URL.');
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    if (!copyText) {
+      showToast('Link opened. No OrgClaim code to copy.');
+      return;
+    }
+    studentCopyPlainToClipboard(copyText).then(
+      function () {
+        showToast('OrgClaim code copied. Link opened in a new tab.');
+        btn.textContent = 'Copied!';
+        btn.disabled = true;
+        setTimeout(function () {
+          btn.textContent = 'OrgClaim';
+          btn.disabled = false;
+        }, 1600);
+      },
+      function () {
+        showToast('Link opened — copy failed. Use the OrgClaim code below if needed.');
+      },
+    );
+  };
 }
 
 function wireStudentSurveyLaunch(s) {
@@ -342,51 +489,52 @@ function wireStudentSurveyLaunch(s) {
 }
 
 function renderSessionInfo(s) {
-  document.getElementById('si-title').textContent = s.sessionName || s.className || '';
+  document.getElementById('si-title').textContent = studentSessionDisplayTitle(s);
   document.getElementById('si-datetime-text').textContent = [s.sessionDate, s.sessionTime].filter(Boolean).join(' · ') || '—';
   document.getElementById('si-room-text').textContent = s.room || '—';
   const desc = document.getElementById('si-desc');
   desc.textContent = s.description || '';
   desc.style.display = s.description ? '' : 'none';
   renderSessionNote(s);
+  wireStudentOrgClaimLaunch(s);
   wireStudentSurveyLaunch(s);
 }
 
 function renderSessionNote(s) {
-  var wrap = document.getElementById('session-note-wrap');
   var listEl = document.getElementById('session-notes-list');
-  if (!wrap || !listEl) return;
+  var toggleBtn = document.getElementById('student-feed-notes-toggle');
+  if (!listEl) return;
   var notes = getStudentVisibleSessionNotes(s);
   if (!notes.length) {
-    wrap.style.display = 'none';
     listEl.innerHTML = '';
+    if (toggleBtn) {
+      toggleBtn.classList.add('is-hidden');
+      toggleBtn.setAttribute('aria-hidden', 'true');
+    }
+    if (studentFeedView === 'notes') {
+      studentFeedView = 'qa';
+    }
+    applyStudentFeedViewDom();
     return;
   }
-  wrap.style.display = 'block';
+  if (toggleBtn) {
+    toggleBtn.classList.remove('is-hidden');
+    toggleBtn.removeAttribute('aria-hidden');
+  }
   listEl.innerHTML = notes.map(function (n) {
     var t = String(n.title || '').trim();
     var b = String(n.body || '').trim();
     var urls = Array.isArray(n.imageUrls) ? n.imageUrls.filter(isHttpsUrl) : [];
-    var links = Array.isArray(n.links) ? n.links.filter(function (l) { return l && isHttpsUrl(l.url); }) : [];
     var titleHtml = t ? '<div class="session-note-title rich-message">' + formatRichMessage(t) + '</div>' : '';
     var bodyHtml = b ? '<div class="session-note-body rich-message">' + formatRichMessage(b) + '</div>' : '';
-    var linksHtml = '';
-    if (links.length) {
-      linksHtml = '<ul class="session-note-links">' + links.map(function (l) {
-        var u = String(l.url || '').trim();
-        var lab = String(l.label || '').trim();
-        var href = esc(u);
-        var text = lab ? esc(lab) : esc(u);
-        return '<li class="session-note-link-item"><a href="' + href + '" target="_blank" rel="noopener noreferrer">' + text + '</a></li>';
-      }).join('') + '</ul>';
-    }
     var imgs = urls.map(function (u) {
       var safe = String(u).replace(/"/g, '');
       return '<a href="' + safe + '" target="_blank" rel="noopener noreferrer"><img src="' + safe + '" alt="" loading="lazy" referrerpolicy="no-referrer"></a>';
     }).join('');
     var imgBlock = imgs ? '<div class="session-note-images">' + imgs + '</div>' : '';
-    return '<div class="session-note-card">' + titleHtml + bodyHtml + linksHtml + imgBlock + '</div>';
+    return '<div class="session-note-card">' + titleHtml + bodyHtml + imgBlock + '</div>';
   }).join('');
+  applyStudentFeedViewDom();
 }
 
 function rebuildAllQuestions() {
@@ -470,10 +618,25 @@ function studentRefreshNow() {
   studentOlderBeyondLoadExhausted = false;
   var btn = document.getElementById('refresh-now-btn');
   if (btn) btn.disabled = true;
-  fetchStudentQuestionsFirstPage()
-    .then(function () { showToast('Board updated.'); })
-    .catch(function () { showToast('Could not refresh. Check your connection.'); })
-    .finally(function () { if (btn) btn.disabled = false; });
+  db.collection('sessions')
+    .doc(sessionCode)
+    .get()
+    .then(function (doc) {
+      if (doc.exists) applyStudentSessionSnapshot(doc.data());
+    })
+    .catch(function () {})
+    .then(function () {
+      return fetchStudentQuestionsFirstPage();
+    })
+    .then(function () {
+      showToast('Board updated.');
+    })
+    .catch(function () {
+      showToast('Could not refresh. Check your connection.');
+    })
+    .finally(function () {
+      if (btn) btn.disabled = false;
+    });
 }
 
 function goStudentOlderPage() {
@@ -928,6 +1091,10 @@ function submitQuestion() {
     clearPendingQuestionImages();
     document.getElementById('submit-btn').disabled = false;
     showToast('Question submitted!');
+    if (studentFeedView === 'notes') {
+      studentFeedView = 'qa';
+      applyStudentFeedViewDom();
+    }
     currentQuestionPage = 0;
     questionPages = [];
     fetchStudentQuestionsFirstPage();
@@ -1000,17 +1167,38 @@ function saveEdit() {
 }
 
 function setFilter(f, btn) {
+  if (studentFeedView === 'notes') {
+    studentFeedView = 'qa';
+    applyStudentFeedViewDom();
+  }
   currentFilter = f;
   document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderQuestions();
 }
 
-function setSort(s, btn) {
-  currentSort = s;
-  document.querySelectorAll('[data-sort]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+function syncStudentSortVotesButton() {
+  var b = document.getElementById('student-sort-votes-btn');
+  if (!b) return;
+  var on = currentSort === 'votes';
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+/** Default order is newest first; click to sort by votes, click again to return to newest first. */
+function toggleStudentSortVotes(btn) {
+  if (studentFeedView === 'notes') {
+    studentFeedView = 'qa';
+    applyStudentFeedViewDom();
+  }
+  currentSort = currentSort === 'votes' ? 'recent' : 'votes';
+  syncStudentSortVotesButton();
   renderQuestions();
+  if (btn && typeof btn.focus === 'function') {
+    try {
+      btn.focus();
+    } catch (e) {}
+  }
 }
 
 function renderQuestions() {
@@ -1674,21 +1862,15 @@ function initStudentSidebarResizer() {
 document.addEventListener('DOMContentLoaded', () => {
   initFmtEmojiPickerLayout();
   fillFmtEmojiPickerGrids();
-  document.getElementById('code-input').addEventListener('keydown', e => { if (e.key==='Enter') joinSession(); });
-  document.getElementById('code-input').addEventListener('input', function () {
-    var el = this;
-    var start = el.selectionStart;
-    var end = el.selectionEnd;
-    var next = el.value.toUpperCase();
-    if (el.value === next) return;
-    el.value = next;
-    if (start != null && end != null) {
-      try {
-        var len = next.length;
-        el.setSelectionRange(Math.min(start, len), Math.min(end, len));
-      } catch (e) {}
-    }
-  });
+  var codeIn = document.getElementById('code-input');
+  if (codeIn) {
+    codeIn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') joinSession();
+    });
+    codeIn.addEventListener('input', function () {
+      syncJoinSuffixInput(this);
+    });
+  }
   var qt = document.getElementById('q-text');
   if (qt) qt.addEventListener('paste', onQuestionTextPaste);
   var qListHost = document.getElementById('questions-list');
@@ -1759,8 +1941,9 @@ Object.assign(globalThis, {
   submitQuestion,
   clearStudentSearch,
   studentRefreshNow,
+  toggleStudentInstructorNotes,
   setFilter,
-  setSort,
+  toggleStudentSortVotes,
   closeEdit,
   saveEdit,
   goStudentPreviousPage,

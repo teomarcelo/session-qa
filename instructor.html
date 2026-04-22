@@ -141,6 +141,58 @@
       <!-- Everything below only shown once a session is selected -->
       <div id="session-dependent-sections" style="display:none;">
 
+        <!-- Session settings -->
+        <div class="side-section collapsed" id="sec-session">
+          <div class="side-section-header" onclick="toggleSection('sec-session')">
+            <span class="side-label">Session settings</span>
+            <span class="side-chevron">▾</span>
+          </div>
+          <div class="side-section-body">
+            <div class="session-edit-form">
+              <div class="form-field">
+                <label>Session name</label>
+                <input class="mini-input" id="sf-session" placeholder="e.g. Track A — Fundamentals" type="text">
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label>Date</label>
+                  <input class="mini-input" id="sf-date" type="date">
+                </div>
+                <div class="form-field">
+                  <label>Time</label>
+                  <input class="mini-input" id="sf-time" type="time">
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Room / Location</label>
+                <input class="mini-input" id="sf-room" placeholder="e.g. Hall D — Room 214" type="text">
+              </div>
+              <div class="form-field">
+                <label>Description / Agenda</label>
+                <textarea class="mini-input mini-textarea" id="sf-desc" placeholder="What will you cover in this session?"></textarea>
+              </div>
+              <div class="form-field">
+                <label>OrgClaim link (<code>http://</code> or <code>https://</code>)</label>
+                <input class="mini-input" id="sf-orgclaim-url" type="url" inputmode="url" placeholder="http://sfdc.co/OrgClaim" autocomplete="off">
+              </div>
+              <div class="form-field">
+                <label>OrgClaim code (text students copy)</label>
+                <input class="mini-input" id="sf-orgclaim-copy" type="text" placeholder="Shown under OrgClaim on the student Session card." autocomplete="off">
+              </div>
+              <div class="form-field">
+                <label>Survey / feedback link (<code>https://</code>)</label>
+                <input class="mini-input" id="sf-survey-url" type="url" inputmode="url" placeholder="https://…" autocomplete="off">
+              </div>
+              <div class="form-field">
+                <label>Survey ID (text students copy)</label>
+                <input class="mini-input" id="sf-survey-copy" type="text" placeholder="Shown under SURVEY on the student Session card." autocomplete="off">
+              </div>
+              <p class="session-survey-hint">Students always see <strong>OrgClaim</strong> on the Session card; if OrgClaim code is empty, <strong>OrgClaim Code:</strong> is shown with nothing after it. <strong>SURVEY</strong> stays off without a Survey ID and an <strong>https</strong> survey link. Leave the OrgClaim link blank to save <code>http://sfdc.co/OrgClaim</code> when you add a code. Tap <strong>Save session info</strong> after edits.</p>
+              <button class="save-btn" onclick="saveSession()">Save session info</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Stats -->
         <div class="side-section" id="sec-stats">
           <div class="side-section-header" onclick="toggleSection('sec-stats')">
@@ -173,66 +225,18 @@
           </div>
         </div>
 
-        <!-- Session settings -->
-        <div class="side-section collapsed" id="sec-session">
-          <div class="side-section-header" onclick="toggleSection('sec-session')">
-            <span class="side-label">Session settings</span>
-            <span class="side-chevron">▾</span>
-          </div>
-          <div class="side-section-body">
-            <div class="session-edit-form">
-              <div class="form-field">
-                <label>Class name</label>
-                <input class="mini-input" id="sf-class" placeholder="e.g. Agentforce Series" type="text">
-              </div>
-              <div class="form-field">
-                <label>Session name</label>
-                <input class="mini-input" id="sf-session" placeholder="e.g. Track A — Fundamentals" type="text">
-              </div>
-              <div class="form-row">
-                <div class="form-field">
-                  <label>Date</label>
-                  <input class="mini-input" id="sf-date" type="date">
-                </div>
-                <div class="form-field">
-                  <label>Time</label>
-                  <input class="mini-input" id="sf-time" type="time">
-                </div>
-              </div>
-              <div class="form-field">
-                <label>Room / Location</label>
-                <input class="mini-input" id="sf-room" placeholder="e.g. Hall D — Room 214" type="text">
-              </div>
-              <div class="form-field">
-                <label>Description / Agenda</label>
-                <textarea class="mini-input mini-textarea" id="sf-desc" placeholder="What will you cover in this session?"></textarea>
-              </div>
-              <div class="form-field">
-                <label>Survey / feedback link (<code>https://</code>)</label>
-                <input class="mini-input" id="sf-survey-url" type="url" inputmode="url" placeholder="https://…" autocomplete="off">
-              </div>
-              <div class="form-field">
-                <label>Survey ID (text students copy)</label>
-                <textarea class="mini-input mini-textarea" id="sf-survey-copy" rows="3" placeholder="Shown on the student Session card and copied when they tap SURVEY."></textarea>
-              </div>
-              <p class="session-survey-hint">Both a valid <strong>https</strong> link and non-empty survey ID text are required for <strong>SURVEY</strong> to appear on the student <strong>Session</strong> card.</p>
-              <button class="save-btn" onclick="saveSession()">Save session info</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Important (student Session panel) — separate from session metadata -->
+        <!-- Instructor Notes (student dashboard) — separate from session metadata -->
         <div class="side-section" id="sec-session-sidebar">
           <div class="side-section-header" onclick="toggleSection('sec-session-sidebar')">
-            <span class="side-label">Important</span>
+            <span class="side-label">Instructor Notes</span>
             <span class="side-chevron">▾</span>
           </div>
           <div class="side-section-body">
             <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;margin-bottom:0.65rem;cursor:pointer;user-select:none;">
-              <input type="checkbox" id="session-note-show" style="width:16px;height:16px;accent-color:var(--accent);"> Display on student sidebar
+              <input type="checkbox" id="session-note-show" style="width:16px;height:16px;accent-color:var(--accent);"> Show in student dashboard
             </label>
             <div id="session-notes-editor-host">
-              <div id="session-notes-editor" class="session-notes-editor" aria-label="Important notes for students"></div>
+              <div id="session-notes-editor" class="session-notes-editor" aria-label="Instructor notes for students"></div>
             </div>
             <button type="button" class="add-btn sn-add-note-btn" style="margin-top:0.5rem;width:100%;" onclick="addSessionNoteCard()">+ Add note</button>
             <button class="save-btn" style="background:var(--accent);margin-top:0.65rem;" onclick="saveSessionNote()">Save session notes</button>
@@ -356,10 +360,13 @@
 <div class="modal-overlay" id="join-session-modal">
   <div class="modal" style="max-width:420px;">
     <div class="modal-title">Join a session</div>
-    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.1rem;line-height:1.5;">Enter the session code shared by the session owner to access it as a co-instructor.</p>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.1rem;line-height:1.5;"><strong>SQA-</strong> is fixed on the left — type the last four characters, or paste a full <strong>SQA-</strong> or legacy <strong>TDX-</strong> code (the label hides for TDX).</p>
     <div class="field">
-      <label style="font-size:0.78rem;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;display:block;">Session code</label>
-      <input id="join-session-code" class="mini-input" type="text" placeholder="SQA-XXXX" style="font-family:'DM Mono',monospace;font-size:1.1rem;letter-spacing:0.15em;text-align:center;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')instructorJoinSession()">
+      <label for="join-session-code" style="font-size:0.78rem;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;display:block;">Session code</label>
+      <div class="join-code-row join-code-row--modal">
+        <span class="join-code-prefix" aria-hidden="true">SQA-</span>
+        <input id="join-session-code" class="mini-input join-code-suffix" type="text" maxlength="8" placeholder="AB12" autocomplete="off" spellcheck="false">
+      </div>
     </div>
     <p class="error-msg" id="join-session-error" style="font-size:0.82rem;color:var(--warn);min-height:1.2rem;margin-bottom:0.5rem;"></p>
     <div class="modal-footer">
@@ -371,14 +378,10 @@
 
 <!-- Create session modal -->
 <div class="modal-overlay" id="create-session-modal">
-  <div class="modal" style="max-width:480px;">
+  <div class="modal" style="max-width:560px;max-height:min(92vh,900px);overflow-y:auto;">
     <div class="modal-title">Create a new session</div>
-    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.1rem;line-height:1.5;">Fill in the details below. A session code will be generated when you save.</p>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.1rem;line-height:1.5;">Same fields as <strong>Session settings</strong> in the sidebar. A session code is generated when you create the session; everything you enter appears there automatically.</p>
     <div style="display:flex;flex-direction:column;gap:0.6rem;">
-      <div class="form-field">
-        <label>Class name</label>
-        <input class="mini-input" id="new-sf-class" placeholder="e.g. Agentforce Series" type="text">
-      </div>
       <div class="form-field">
         <label>Session name</label>
         <input class="mini-input" id="new-sf-session" placeholder="e.g. Track A — Fundamentals" type="text">
@@ -401,6 +404,23 @@
         <label>Description / Agenda <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-light)">(optional)</span></label>
         <textarea class="mini-input mini-textarea" id="new-sf-desc" placeholder="What will you cover?"></textarea>
       </div>
+      <div class="form-field">
+        <label>OrgClaim link (<code>http://</code> or <code>https://</code>)</label>
+        <input class="mini-input" id="new-sf-orgclaim-url" type="url" inputmode="url" placeholder="http://sfdc.co/OrgClaim" autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label>OrgClaim code (text students copy)</label>
+        <input class="mini-input" id="new-sf-orgclaim-copy" type="text" placeholder="Shown under OrgClaim on the student Session card." autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label>Survey / feedback link (<code>https://</code>)</label>
+        <input class="mini-input" id="new-sf-survey-url" type="url" inputmode="url" placeholder="https://…" autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label>Survey ID (text students copy)</label>
+        <input class="mini-input" id="new-sf-survey-copy" type="text" placeholder="Shown under SURVEY on the student Session card." autocomplete="off">
+      </div>
+      <p class="session-survey-hint">Students always see <strong>OrgClaim</strong> on the Session card; if OrgClaim code is empty, <strong>OrgClaim Code:</strong> is shown with nothing after it. <strong>SURVEY</strong> stays off without a Survey ID and an <strong>https</strong> survey link. Leave the OrgClaim link blank to save <code>http://sfdc.co/OrgClaim</code> when you add a code.</p>
     </div>
     <p class="error-msg" id="create-session-error" style="font-size:0.82rem;color:var(--warn);min-height:1.2rem;margin-bottom:0.5rem;"></p>
     <div class="modal-footer">

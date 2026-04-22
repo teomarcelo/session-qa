@@ -60,6 +60,11 @@ export function isHttpsUrl(u) {
   return !!u && /^https:\/\//i.test(String(u).trim());
 }
 
+/** Session launch links that allow Salesforce short links (e.g. OrgClaim). */
+export function isHttpOrHttpsUrl(u) {
+  return !!u && /^https?:\/\//i.test(String(u).trim());
+}
+
 /**
  * @param {HTMLElement} button
  * @param {(msg: string) => void} showToast

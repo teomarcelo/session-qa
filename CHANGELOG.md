@@ -4,15 +4,41 @@ All notable changes to this project are documented here. Newest first.
 
 ---
 
+## 2026-04-18 (later)
+
+### Docs
+
+- **README** and **SETUP.md:** GitHub Pages deploy walkthrough (**Option B — GitHub Actions**): enable Pages from Actions, branch **`main`**, bookmark URLs for hub / `student.html` / `instructor.html`, Storage CORS note, optional **`VITE_*`** secrets.
+
+### Student
+
+- **Instructor notes:** single **Instructor notes** pill on the filter row (after **Most votes**); toggles the main feed between Q&A and notes only (no named link list on the student board).
+- **Sort:** **Most recent** control removed; **Most votes** is one toggle on the same row as All / Pinned / Unanswered / Answered (off = newest first). **Top pagination** moved **below** the filter row.
+
+### Instructor
+
+- **Instructor Notes** sidebar label (replaces “Important”); **Show in student dashboard** checkbox copy.
+- **Edit** saved answer text/images on a thread.
+
+---
+
 ## 2026-04-18
+
+### Changed
+
+- **Class name removed** from instructor session UI, create modal, saves, and student titles (only **session name** is used). Saving session info deletes legacy **`className`** on the Firestore session document.
+- **Join session (student + instructor):** split row — fixed **`SQA-`** label plus a suffix field (no more deleting the prefix or caret jumps). Paste **`TDX-…`** to switch to legacy full-code mode (label hides). **`src/lib/sessionCode.js`** owns sync + `buildSessionCodeFromJoinRow` / `setJoinRowFromSessionCode`.
+- **Student Instructor Notes:** moved out of the Session sidebar; students open notes via the **Instructor notes** control on the filter row (see **2026-04-18 (later)** for current toggle + layout).
 
 ### Added
 
-- **Multiple session sidebar notes:** Instructors can add several independent “Important” messages (title, body with formatting toolbar, image URLs, per-note visibility). **Drag the handle (⠿)** to reorder before saving. Stored as `sessionNotes` on `sessions/{code}` (capped at 15). Students see each note as its own card in session order. **Legacy** single `sessionNoteTitle` / `sessionNoteBody` / `sessionNoteImageUrls` still works when `sessionNotes` is absent. Shared helpers in **`src/lib/sessionNotes.js`**.
-- **Named links** on each session note: optional **https** URL plus optional **display name**; students get a compact link list under the message (still capped per note in **`sessionNotes.js`**).
+- **Multiple session sidebar notes:** Instructors can add several independent note cards (title, body with formatting toolbar, image URLs, per-note visibility). **Drag the handle (⠿)** to reorder before saving. Stored as `sessionNotes` on `sessions/{code}` (capped at 15). Students see each note as its own card when the notes feed is open. **Legacy** single `sessionNoteTitle` / `sessionNoteBody` / `sessionNoteImageUrls` still works when `sessionNotes` is absent. Shared helpers in **`src/lib/sessionNotes.js`**.
+- **Named links** on each session note (instructor editor + Firestore): optional **https** URL plus optional **display name** (capped per note in **`sessionNotes.js`**); not listed separately on the student board (body links still render).
 - **Student layout:** Session sidebar is **resizable** (drag the strip between feed and sidebar), **collapsible** via the **chevron** control, width persisted in **`localStorage`**. Below **768px** the layout stacks and the resizer is hidden. The strip shows subtle **‹ ›** hints for drag direction.
 - **Instructor layout:** Left **My sessions** sidebar matches the same **drag / chevron / keyboard** resize and collapse behavior (persisted separately; hidden below **900px**).
 - **Instructor session notes:** Each note card can be **collapsed** (▼) to save space; **+ Add note** collapses all existing cards and opens the new one expanded.
+- **OrgClaim + Survey on student Session card:** **`studentOrgClaimUrl`** (defaults to **`http://sfdc.co/OrgClaim`**) and **`studentOrgClaimCopyText`**; **OrgClaim** above **SURVEY** and always visible; empty OrgClaim code leaves **OrgClaim Code:** with no text after it. Survey ID / https rules unchanged for **SURVEY** (no Survey ID substitute for OrgClaim).
+- **Create session modal:** **+ New session** includes the same core fields as **Session settings** (session name, date/time, room, description, OrgClaim link/code, survey link/ID). After **Create session**, the sidebar form is filled from the saved document so you can continue editing without retyping.
 
 ---
 
@@ -43,7 +69,7 @@ All notable changes to this project are documented here. Newest first.
 
 ### Fixed
 
-- **Student join (`code-input`):** Auto-uppercase on input restores **`selectionStart` / `selectionEnd`** so the caret does not jump to the end when fixing a character in the middle of the session code.
+- **Student join (`code-input`):** Split **`SQA-`** + suffix field; see **`src/lib/sessionCode.js`**.
 
 ### Documentation
 
