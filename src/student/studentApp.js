@@ -18,7 +18,10 @@ import { createShowToast } from '../lib/toast.js';
 import { formatQuestionWhen } from '../lib/formatQuestionWhen.js';
 import { filterCorpusByFuseSearch } from '../lib/questionSearch.js';
 import { fetchSessionQuestionCountStats } from '../lib/sessionQuestionCounts.js';
-import { getStudentVisibleSessionNotes } from '../lib/sessionNotes.js';
+import {
+  getStudentVisibleSessionNotes,
+  isStudentInstructorNotesDashboardEnabled,
+} from '../lib/sessionNotes.js';
 import { getEffectiveStudentOrgClaimUrl, getStudentOrgClaimCodeOnly } from '../lib/sessionLaunch.js';
 import {
   SESSION_JOIN_PREFIX,
@@ -238,8 +241,8 @@ function applyStudentSessionSnapshot(data) {
   renderSessionInfo(data);
 }
 
-function studentHasVisibleInstructorNotes() {
-  return !!(currentSession && getStudentVisibleSessionNotes(currentSession).length);
+function studentInstructorNotesDashboardEnabled() {
+  return isStudentInstructorNotesDashboardEnabled(currentSession);
 }
 
 /** Keep the Instructor notes pill in sync with session data (even if #session-notes-list is missing). */
@@ -252,8 +255,7 @@ function syncStudentInstructorNotesToggleVisibility(optSession) {
     toggleBtn.setAttribute('aria-hidden', 'true');
     return;
   }
-  var notes = getStudentVisibleSessionNotes(s);
-  var has = notes.length > 0;
+  var has = isStudentInstructorNotesDashboardEnabled(s);
   if (has) {
     toggleBtn.classList.remove('is-hidden');
     toggleBtn.removeAttribute('aria-hidden');
@@ -273,7 +275,7 @@ function applyStudentFeedViewDom() {
   var notesPanel = document.getElementById('student-notes-feed-panel');
   var toggleBtn = document.getElementById('student-feed-notes-toggle');
   if (!listChromeBlocks.length || !notesPanel) return;
-  var notesAvailable = studentHasVisibleInstructorNotes();
+  var notesAvailable = studentInstructorNotesDashboardEnabled();
   var showNotes = studentFeedView === 'notes' && notesAvailable;
   listChromeBlocks.forEach(function (el) {
     el.classList.toggle('is-hidden', showNotes);
@@ -288,7 +290,7 @@ function applyStudentFeedViewDom() {
 
 function toggleStudentInstructorNotes(btn) {
   var toggleBtn = document.getElementById('student-feed-notes-toggle');
-  if (!toggleBtn || !studentHasVisibleInstructorNotes()) return;
+  if (!toggleBtn || !studentInstructorNotesDashboardEnabled()) return;
   toggleBtn.classList.remove('is-hidden');
   toggleBtn.removeAttribute('aria-hidden');
   studentFeedView = studentFeedView === 'notes' ? 'qa' : 'notes';
@@ -542,7 +544,12 @@ function renderSessionNote(s) {
     return;
   }
   if (!notes.length) {
-    listEl.innerHTML = '';
+    if (isStudentInstructorNotesDashboardEnabled(s)) {
+      listEl.innerHTML =
+        '<div class="empty-state session-notes-empty"><p>No instructor notes yet. Check back after the host posts an update.</p></div>';
+    } else {
+      listEl.innerHTML = '';
+    }
     applyStudentFeedViewDom();
     return;
   }

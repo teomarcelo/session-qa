@@ -86,6 +86,14 @@ function noteHasStudentVisibleContent(n) {
   });
 }
 
+/**
+ * Host left “Show in student dashboard” on — students may open the notes feed
+ * even when there are zero saved cards yet (empty state in the panel).
+ */
+export function isStudentInstructorNotesDashboardEnabled(s) {
+  return !!(s && s.sessionNoteShow !== false);
+}
+
 /** Notes visible on the student board (master switch + per-note show + non-empty). */
 export function getStudentVisibleSessionNotes(s) {
   if (!s || s.sessionNoteShow === false) return [];
