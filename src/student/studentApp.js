@@ -250,7 +250,8 @@ function applyStudentFeedViewDom() {
   });
   notesPanel.classList.toggle('is-hidden', !showNotes);
   if (toggleBtn) {
-    toggleBtn.classList.toggle('active', showNotes);
+    toggleBtn.classList.toggle('filter-btn-aux-on', showNotes);
+    toggleBtn.classList.remove('active');
     toggleBtn.setAttribute('aria-pressed', showNotes ? 'true' : 'false');
   }
 }
@@ -1194,7 +1195,8 @@ function syncStudentSortVotesButton() {
   var b = document.getElementById('student-sort-votes-btn');
   if (!b) return;
   var on = currentSort === 'votes';
-  b.classList.toggle('active', on);
+  b.classList.toggle('filter-btn-aux-on', on);
+  b.classList.remove('active');
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 

@@ -1169,6 +1169,18 @@
     transition: all 0.15s;
   }
   .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  /* Sort + instructor-notes: “on” state without a second solid-blue pill (only status filters use .active). */
+  .filter-btn.filter-btn-aux-on {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .filter-btn.filter-btn-aux-on:hover {
+    background: color-mix(in srgb, var(--accent-light) 75%, var(--accent) 25%);
+    border-color: var(--accent-hover);
+    color: var(--accent-hover);
+  }
 
   /* Edit modal */
   .modal-overlay {
