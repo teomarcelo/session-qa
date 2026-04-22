@@ -109,13 +109,20 @@
       </div>
       <div class="student-q-toolbar" id="student-q-toolbar" aria-label="Filter and sort questions">
         <div class="student-q-toolbar-btns">
-          <button type="button" class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
-          <button type="button" class="filter-btn" data-filter="pinned" onclick="setFilter('pinned',this)">Pinned</button>
-          <button type="button" class="filter-btn" data-filter="unanswered" onclick="setFilter('unanswered',this)">Unanswered</button>
-          <button type="button" class="filter-btn" data-filter="answered" onclick="setFilter('answered',this)">Answered</button>
-          <button type="button" class="filter-btn" id="student-sort-votes-btn" aria-pressed="false" title="Toggle sort: off = newest first, on = most votes first" onclick="toggleStudentSortVotes(this)">Most votes</button>
+          <div class="student-q-toolbar-filters" role="group" aria-label="Which questions to show">
+            <button type="button" class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
+            <button type="button" class="filter-btn" data-filter="pinned" onclick="setFilter('pinned',this)">Pinned</button>
+            <button type="button" class="filter-btn" data-filter="unanswered" onclick="setFilter('unanswered',this)">Unanswered</button>
+            <button type="button" class="filter-btn" data-filter="answered" onclick="setFilter('answered',this)">Answered</button>
+          </div>
+          <div class="student-q-toolbar-sort" role="group" aria-labelledby="student-sort-group-label">
+            <span class="student-q-toolbar-sublabel" id="student-sort-group-label">Sort</span>
+            <button type="button" class="filter-btn filter-btn--sort" id="student-sort-votes-btn" aria-pressed="false" title="Off = newest first. On = highest votes first. (Does not change which questions are shown — use All / Pinned / … for that.)" onclick="toggleStudentSortVotes(this)">Most votes</button>
+          </div>
           <span class="student-q-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" class="filter-btn is-hidden" id="student-feed-notes-toggle" aria-pressed="false" aria-controls="student-notes-feed-panel" onclick="toggleStudentInstructorNotes(this)">Instructor notes</button>
+          <div class="student-q-toolbar-notes" role="group" aria-label="Instructor notes">
+            <button type="button" class="filter-btn is-hidden" id="student-feed-notes-toggle" aria-pressed="false" aria-controls="student-notes-feed-panel" onclick="toggleStudentInstructorNotes(this)">Instructor notes</button>
+          </div>
         </div>
       </div>
       <div class="student-qa-list-chrome">

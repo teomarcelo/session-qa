@@ -445,7 +445,29 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 0.65rem;
+  }
+  .student-q-toolbar-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
+  }
+  .student-q-toolbar-sort,
+  .student-q-toolbar-notes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .student-q-toolbar-sublabel {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-light);
+    user-select: none;
   }
   .student-q-toolbar-sep {
     flex: 0 0 auto;
@@ -1206,15 +1228,14 @@
     border-color: var(--accent);
     color: white;
   }
-  /* Sort + instructor-notes: “on” state — outlined, not filled like status .active. */
+  /* Sort + instructor-notes when “on” — light fill (not the same solid blue as status filters). */
   .filter-btn.filter-btn-aux-on {
-    background: var(--surface);
+    background: var(--accent-light);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-hover);
     font-weight: 600;
   }
   .filter-btn.filter-btn-aux-on:hover {
-    background: var(--accent-light);
     border-color: var(--accent-hover);
     color: var(--accent-hover);
   }
