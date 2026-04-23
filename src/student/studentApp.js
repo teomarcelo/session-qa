@@ -35,6 +35,7 @@ import {
   JOIN_CODE_ROW_LEGACY_TDX_CLASS,
 } from '../lib/sessionCode.js';
 import { htmlAnsweredStatusBadges } from '../lib/answeredBadge.js';
+import { extractImageUrlForQuestionPaste } from '../lib/clipboardImagePaste.js';
 
 const showToast = createShowToast('toast');
 
@@ -971,75 +972,6 @@ function collectImageFilesFromPaste(e) {
   return out;
 }
 
-function normalizeClipboardImageHttps(src) {
-  var s = String(src || '').trim();
-  if (!s) return '';
-  if (s.indexOf('//') === 0) s = 'https:' + s;
-  return s;
-}
-
-function looksLikeImageUrl(u) {
-  var s = String(u || '').toLowerCase();
-  if (!s || s.indexOf('data:') === 0) return false;
-  if (/\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)(\?|#|$)/i.test(s)) return true;
-  if (s.indexOf('gstatic.com') >= 0) return true;
-  if (s.indexOf('googleusercontent.com') >= 0) return true;
-  if (s.indexOf('ggpht.com') >= 0) return true;
-  if (s.indexOf('twimg.com') >= 0) return true;
-  if (s.indexOf('cdn.') >= 0 && /\/(image|img|photo|media)\//i.test(s)) return true;
-  return false;
-}
-
-function extractImageSrcFromUriListPaste(e) {
-  var cd = e.clipboardData;
-  if (!cd) return '';
-  var raw = (cd.getData('text/uri-list') || '').trim();
-  if (!raw) return '';
-  var u = raw.split(/\r?\n/)[0].trim();
-  if (u.indexOf('file:') === 0) return '';
-  u = normalizeClipboardImageHttps(u);
-  return isHttpsUrl(u) && looksLikeImageUrl(u) ? u : '';
-}
-
-function extractImageSrcFromPlainPaste(e) {
-  var cd = e.clipboardData;
-  if (!cd) return '';
-  var t = (cd.getData('text/plain') || '').trim();
-  if (!t || t.length > 12000) return '';
-  var lines = t.split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
-    var m = line.match(/^https:\/\/[^\s<>"']+$/);
-    if (!m) continue;
-    var u = normalizeClipboardImageHttps(m[0]);
-    if (isHttpsUrl(u) && looksLikeImageUrl(u)) return u;
-  }
-  return '';
-}
-
-function extractImageSrcFromHtmlPaste(e) {
-  var cd = e.clipboardData;
-  if (!cd) return '';
-  var html = cd.getData('text/html');
-  if (!html || !html.trim()) return '';
-  try {
-    var doc = new DOMParser().parseFromString(html, 'text/html');
-    var imgs = doc.querySelectorAll('img[src]');
-    for (var i = 0; i < imgs.length; i++) {
-      var src = (imgs[i].getAttribute('src') || '').trim();
-      if (!src || src.indexOf('data:') === 0) continue;
-      src = normalizeClipboardImageHttps(src);
-      if (isHttpsUrl(src)) return src;
-    }
-    return '';
-  } catch (er) { return ''; }
-}
-
-function extractImageUrlForQuestionPaste(e, hasFiles) {
-  if (hasFiles) return '';
-  return extractImageSrcFromHtmlPaste(e) || extractImageSrcFromUriListPaste(e) || extractImageSrcFromPlainPaste(e);
-}
-
 function formatStudentImageUploadError(err) {
   var m = (err && err.message) ? String(err.message) : '';
   var code = (err && err.code) ? String(err.code) : '';
@@ -1108,7 +1040,7 @@ function onQuestionTextPaste(e) {
       showToast('Image link added (Firebase Storage not active—this uses the original URL).');
       return;
     }
-    showToast('Image paste needs Firebase Storage enabled in your project.');
+    showToast('Image files need Firebase Storage (paid plan). Paste an https:// image link instead, or upgrade Storage.');
     return;
   }
 
@@ -1875,7 +1807,7 @@ function fillFmtEmojiPickerGrids() {
     if (!tid) return;
     ensureFmtEmojiGridShell(grid);
     grid.innerHTML = FORMAT_EMOJI_PICKER_CHARS.map(function (ch) {
-      return '<button type="button" class="fmt-btn fmt-emoji fmt-emoji-picker-cell" data-emoji-target="' + escFmtAttr(tid) + '" data-ch="' + escFmtAttr(ch) + '" title="Insert" aria-label="Insert emoji">' + ch + '</button>';
+      return '<span role="button" tabindex="0" class="fmt-emoji fmt-emoji-picker-cell" data-emoji-target="' + escFmtAttr(tid) + '" data-ch="' + escFmtAttr(ch) + '" title="Insert" aria-label="Insert emoji">' + ch + '</span>';
     }).join('');
     requestAnimationFrame(function () {
       var shell = grid.closest('.fmt-emoji-grid-shell');
@@ -2175,16 +2107,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 200);
     });
   }
+  function handleFmtEmojiPickerActivate(pick, e) {
+    if (!pick) return;
+    if (e) e.preventDefault();
+    var tid = pick.getAttribute('data-emoji-target');
+    var ch = pick.getAttribute('data-ch');
+    if (tid && ch != null) insertEmoji(tid, ch);
+    var shellPick = pick.closest('.fmt-emoji-grid-shell');
+    var detPick = (shellPick && shellPick._fmtEmojiDetails) || pick.closest('details');
+    if (detPick) detPick.open = false;
+  }
   document.body.addEventListener('click', function (e) {
     var pick = e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
     if (pick) {
-      e.preventDefault();
-      var tid = pick.getAttribute('data-emoji-target');
-      var ch = pick.getAttribute('data-ch');
-      if (tid && ch != null) insertEmoji(tid, ch);
-      var shellPick = pick.closest('.fmt-emoji-grid-shell');
-      var detPick = (shellPick && shellPick._fmtEmojiDetails) || pick.closest('details');
-      if (detPick) detPick.open = false;
+      handleFmtEmojiPickerActivate(pick, e);
       return;
     }
     var btn = e.target.closest && e.target.closest('.rich-copy-btn');
@@ -2202,6 +2138,12 @@ document.addEventListener('DOMContentLoaded', () => {
       d.open = false;
     });
   }
+  document.body.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var pick = e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
+    if (!pick) return;
+    handleFmtEmojiPickerActivate(pick, e);
+  });
   document.addEventListener('pointerdown', closeFmtEmojiPickersIfOutside, true);
   document.addEventListener('touchstart', closeFmtEmojiPickersIfOutside, { capture: true, passive: true });
   document.addEventListener('keydown', function (e) {

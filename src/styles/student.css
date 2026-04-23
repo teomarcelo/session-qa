@@ -795,6 +795,9 @@
     border-radius: 10px;
     background: var(--surface);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.14), 0 2px 10px rgba(0, 0, 0, 0.08);
+    /* Picker is often moved to document.body; host / embed CSS must not replace this with a non-emoji font. */
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Twemoji Mozilla', emoji, system-ui, sans-serif;
+    color: var(--text);
   }
   .fmt-emoji-grid-shell.fmt-emoji-grid-shell--flip-above {
     top: auto;
@@ -897,7 +900,8 @@
       grid-template-columns: repeat(7, 1fr);
     }
   }
-  .fmt-emoji-grid .fmt-btn.fmt-emoji.fmt-emoji-picker-cell {
+  /* Spans (not buttons): embedded hosts often force non-emoji fonts on `button` with !important. */
+  .fmt-emoji-grid .fmt-emoji-picker-cell {
     aspect-ratio: 1;
     min-width: 0;
     width: 100%;
@@ -910,7 +914,21 @@
     font-size: 1.2rem;
     line-height: 1;
     border-radius: 8px;
-    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', sans-serif;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    -webkit-tap-highlight-color: transparent;
+    font-variant-emoji: emoji;
+    color: var(--text) !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Twemoji Mozilla', emoji, system-ui, sans-serif !important;
+  }
+  .fmt-emoji-grid .fmt-emoji-picker-cell:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .fmt-emoji-grid .fmt-emoji-picker-cell:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
   .modal .format-toolbar { margin-top: 0.35rem; margin-bottom: 0.65rem; }
   .ask-box textarea {

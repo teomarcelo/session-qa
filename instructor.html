@@ -198,18 +198,6 @@
           </div>
         </div>
 
-        <!-- Student dashboard feedback (Firestore: sessions/{code}/sessionFeedback) -->
-        <div class="side-section" id="sec-session-feedback">
-          <div class="side-section-header" onclick="toggleSection('sec-session-feedback')">
-            <span class="side-label">Student feedback</span>
-            <span class="side-chevron">▾</span>
-          </div>
-          <div class="side-section-body">
-            <p class="instr-feedback-lead">Anonymous notes from the student sidebar (newest first).</p>
-            <div id="instr-session-feedback-list" class="instr-feedback-list-wrap" aria-live="polite"></div>
-          </div>
-        </div>
-
         <!-- Stats -->
         <div class="side-section" id="sec-stats">
           <div class="side-section-header" onclick="toggleSection('sec-stats')">
@@ -257,6 +245,18 @@
             </div>
             <button type="button" class="add-btn sn-add-note-btn" style="margin-top:0.5rem;width:100%;" onclick="addSessionNoteCard()">+ Add note</button>
             <button class="save-btn" style="background:var(--accent);margin-top:0.65rem;" onclick="saveSessionNote()">Save session notes</button>
+          </div>
+        </div>
+
+        <!-- Dashboard feedback (Firestore: sessions/{code}/sessionFeedback) -->
+        <div class="side-section collapsed" id="sec-session-feedback">
+          <div class="side-section-header" onclick="toggleSection('sec-session-feedback')">
+            <span class="side-label">Dashboard feedback</span>
+            <span class="side-chevron">▾</span>
+          </div>
+          <div class="side-section-body">
+            <p class="instr-feedback-lead">Anonymous notes from the student dashboard (newest first).</p>
+            <div id="instr-session-feedback-list" class="instr-feedback-list-wrap" aria-live="polite"></div>
           </div>
         </div>
 

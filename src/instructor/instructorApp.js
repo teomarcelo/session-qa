@@ -24,6 +24,7 @@ import {
   initSessionTimezoneSelects,
 } from '../lib/sessionTimezones.js';
 import { htmlAnsweredStatusBadges } from '../lib/answeredBadge.js';
+import { extractImageUrlForQuestionPaste } from '../lib/clipboardImagePaste.js';
 
 const showToast = createShowToast('toast');
 function copyRichCodeBlockInstr(btn) {
@@ -166,6 +167,8 @@ const answerDrafts = {};
 const pendingAnswerImages = {};
 /** When set, the next Save answer updates this index instead of appending (`{ qId, index }`). */
 let answerEditState = null;
+/** True only for one `captureAnswerDrafts` pass after `beginEditAnswer` — avoids clobbering the draft with the pre-render empty textarea. */
+let answerEditSkipEmptyCaptureOnce = false;
 /** Working copy for the Instructor Notes editor (reordered in UI, saved on “Save session notes”). */
 let sessionNotesDraft = [];
 
@@ -231,10 +234,10 @@ const INSTR_SECTION_COLLAPSE_LS = 'sqa_instructor_section_collapsed_v1';
 const INSTR_SECTION_IDS = [
   'sec-sessions',
   'sec-session',
-  'sec-session-feedback',
   'sec-stats',
   'sec-filters',
   'sec-session-sidebar',
+  'sec-session-feedback',
 ];
 
 function readInstrSectionCollapseOverrides() {
@@ -1033,9 +1036,12 @@ function goInstructorNextPage() {
 }
 
 function captureAnswerDrafts() {
+  const skipQid =
+    answerEditSkipEmptyCaptureOnce && answerEditState ? answerEditState.qId : null;
   document.querySelectorAll('#questions-list textarea.answer-box').forEach(ta => {
     if (ta.id && ta.id.indexOf('ans-') === 0) {
       const qid = ta.id.slice(4);
+      if (skipQid === qid && ta.value === '') return;
       answerDrafts[qid] = ta.value;
     }
   });
@@ -1046,6 +1052,7 @@ function restoreAnswerDrafts() {
     const ta = document.getElementById('ans-' + qid);
     if (ta) ta.value = answerDrafts[qid];
   });
+  answerEditSkipEmptyCaptureOnce = false;
 }
 
 const IMG_MAX_EDGE = 1600;
@@ -1120,33 +1127,69 @@ function onAnswerBoxPaste(e) {
   const t = e.target;
   if (!t || !t.classList || !t.classList.contains('answer-box')) return;
   const files = collectImageFilesFromPaste(e);
-  if (!files.length) return;
+  const clipUrl = extractImageUrlForQuestionPaste(e, files.length > 0);
+  if (!files.length && !clipUrl) return;
   if (isDemoMode) {
     e.preventDefault();
-    showToast('Image paste: use a live session with Firebase Storage (see SETUP.md).');
+    showToast('Image paste: use a live session (demo has no Storage).');
     return;
   }
-  if (!activeSessionCode || !storage) {
+  if (!activeSessionCode) return;
+
+  if (!storage) {
     e.preventDefault();
-    showToast('Enable Firebase Storage to paste images.');
+    const qid0 = t.id.replace(/^ans-/, '');
+    if (clipUrl && qid0) {
+      if (!pendingAnswerImages[qid0]) pendingAnswerImages[qid0] = [];
+      pendingAnswerImages[qid0].push(clipUrl);
+      syncAnswerPastePreviews();
+      showToast('Image link added (Storage not enabled—uses the hosted URL).');
+      return;
+    }
+    showToast('Image files need Firebase Storage. Paste an https:// image link instead, or enable Storage.');
     return;
   }
+
   e.preventDefault();
   const qid = t.id.replace(/^ans-/, '');
   if (!qid) return;
   if (!pendingAnswerImages[qid]) pendingAnswerImages[qid] = [];
   (async () => {
-    for (const file of files) {
+    if (files.length) {
+      for (const file of files) {
+        try {
+          showToast('Uploading image…');
+          const blob = await resizeImageToJpegBlobInstr(file);
+          const url = await uploadInstructorAnswerImage(blob, qid);
+          pendingAnswerImages[qid].push(url);
+          syncAnswerPastePreviews();
+          showToast('Image attached to this answer.');
+        } catch (err) {
+          console.warn(err);
+          showToast('Upload failed. Enable Storage + rules in Firebase (SETUP.md).');
+        }
+      }
+      return;
+    }
+    if (clipUrl) {
+      pendingAnswerImages[qid].push(clipUrl);
+      syncAnswerPastePreviews();
+      showToast('Uploading image…');
       try {
-        showToast('Uploading image…');
-        const blob = await resizeImageToJpegBlobInstr(file);
-        const url = await uploadInstructorAnswerImage(blob, qid);
-        pendingAnswerImages[qid].push(url);
+        const r = await fetch(clipUrl, { mode: 'cors' });
+        if (!r.ok) throw new Error('Could not download image (site blocked copy).');
+        const blob0 = await r.blob();
+        const jpeg = await resizeImageToJpegBlobInstr(blob0);
+        const url2 = await uploadInstructorAnswerImage(jpeg, qid);
+        const arr = pendingAnswerImages[qid] || [];
+        const ix = arr.lastIndexOf(clipUrl);
+        if (ix >= 0) arr[ix] = url2;
+        pendingAnswerImages[qid] = arr;
         syncAnswerPastePreviews();
         showToast('Image attached to this answer.');
       } catch (err) {
         console.warn(err);
-        showToast('Upload failed. Enable Storage + rules in Firebase (SETUP.md).');
+        showToast('Using image link (download or upload was blocked). Save to keep the URL.');
       }
     }
   })();
@@ -1311,7 +1354,7 @@ function formatInstrFeedbackWhen(ms) {
   }
 }
 
-/** Live list of anonymous student dashboard feedback for the active session. */
+/** Live list of anonymous dashboard feedback for the active session. */
 function renderInstrSessionFeedback(rows, opts) {
   const wrap = document.getElementById('instr-session-feedback-list');
   if (!wrap) return;
@@ -1319,7 +1362,7 @@ function renderInstrSessionFeedback(rows, opts) {
   if (!rows || !rows.length) {
     wrap.innerHTML = demo
       ? '<p class="instr-feedback-empty">Feedback is not stored in demo mode.</p>'
-      : '<p class="instr-feedback-empty">No student feedback for this session yet.</p>';
+      : '<p class="instr-feedback-empty">No dashboard feedback for this session yet.</p>';
     return;
   }
   wrap.innerHTML = rows
@@ -1358,11 +1401,18 @@ function wireSessionFeedbackForCode(code) {
         renderInstrSessionFeedback(rows, { demo: false });
       },
       (err) => {
-        console.warn('Session feedback listener:', err);
-        if (code === activeSessionCode && wrap) {
+        console.warn('Dashboard feedback listener:', err);
+        if (code !== activeSessionCode || !wrap) return;
+        const perm =
+          err &&
+          (err.code === 'permission-denied' || err.code === 'firestore/permission-denied');
+        if (perm) {
           wrap.innerHTML =
-            '<p class="instr-feedback-empty instr-feedback-empty--warn">Could not load feedback. Deploy updated firestore.rules and try again.</p>';
+            '<p class="instr-feedback-empty instr-feedback-empty--warn">Could not load dashboard feedback: Firestore blocked reads. In the Firebase console open <strong>Firestore</strong> → <strong>Rules</strong> and publish the rules from this repo’s <code>firestore.rules</code> (includes <code>sessionFeedback</code> under <code>sessions</code>). This is <strong>free</strong> and does not require upgrading Storage.</p>';
+          return;
         }
+        const detail = esc(String((err && err.message) || err.code || err || 'Unknown error'));
+        wrap.innerHTML = `<p class="instr-feedback-empty instr-feedback-empty--warn">Could not load dashboard feedback: ${detail}</p>`;
       },
     );
 }
@@ -1858,6 +1908,7 @@ function beginEditAnswer(qId, index) {
   answerEditState = { qId, index };
   answerDrafts[qId] = a.text || '';
   pendingAnswerImages[qId] = Array.isArray(a.imageUrls) ? [...a.imageUrls] : [];
+  answerEditSkipEmptyCaptureOnce = true;
   renderQuestions();
   const ta = document.getElementById('ans-' + qId);
   if (ta) {
@@ -2611,7 +2662,7 @@ function fillFmtEmojiPickerGrids() {
     if (!tid) return;
     ensureFmtEmojiGridShell(grid);
     grid.innerHTML = FORMAT_EMOJI_PICKER_CHARS.map(ch =>
-      '<button type="button" class="fmt-btn fmt-emoji fmt-emoji-picker-cell" data-emoji-target="' + escFmtAttr(tid) + '" data-ch="' + escFmtAttr(ch) + '" title="Insert" aria-label="Insert emoji">' + ch + '</button>'
+      '<span role="button" tabindex="0" class="fmt-emoji fmt-emoji-picker-cell" data-emoji-target="' + escFmtAttr(tid) + '" data-ch="' + escFmtAttr(ch) + '" title="Insert" aria-label="Insert emoji">' + ch + '</span>'
     ).join('');
     requestAnimationFrame(() => {
       const shell = grid.closest('.fmt-emoji-grid-shell');
@@ -3029,16 +3080,20 @@ document.addEventListener('DOMContentLoaded', () => {
       renderSessionNotesEditor();
     });
   }
+  function handleFmtEmojiPickerActivateInstr(pick, e) {
+    if (!pick) return;
+    if (e) e.preventDefault();
+    const tid = pick.getAttribute('data-emoji-target');
+    const ch = pick.getAttribute('data-ch');
+    if (tid && ch != null) insertEmoji(tid, ch);
+    const shellPick = pick.closest('.fmt-emoji-grid-shell');
+    const detPick = (shellPick && shellPick._fmtEmojiDetails) || pick.closest('details');
+    if (detPick) detPick.open = false;
+  }
   document.body.addEventListener('click', (e) => {
     const pick = e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
     if (pick) {
-      e.preventDefault();
-      const tid = pick.getAttribute('data-emoji-target');
-      const ch = pick.getAttribute('data-ch');
-      if (tid && ch != null) insertEmoji(tid, ch);
-      const shellPick = pick.closest('.fmt-emoji-grid-shell');
-      const detPick = (shellPick && shellPick._fmtEmojiDetails) || pick.closest('details');
-      if (detPick) detPick.open = false;
+      handleFmtEmojiPickerActivateInstr(pick, e);
       return;
     }
     const btn = e.target.closest && e.target.closest('.rich-copy-btn');
@@ -3059,9 +3114,15 @@ document.addEventListener('DOMContentLoaded', () => {
   /* Capture so this runs before other handlers; pointerdown + touchstart for outside dismiss. */
   document.addEventListener('pointerdown', closeFmtEmojiPickersIfOutside, true);
   document.addEventListener('touchstart', closeFmtEmojiPickersIfOutside, { capture: true, passive: true });
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    document.querySelectorAll('details.fmt-emoji-more[open]').forEach((d) => { d.open = false; });
+  document.body.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('details.fmt-emoji-more[open]').forEach((d) => { d.open = false; });
+      return;
+    }
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const pick = e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
+    if (!pick) return;
+    handleFmtEmojiPickerActivateInstr(pick, e);
   });
 });
 
