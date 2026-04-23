@@ -2399,22 +2399,10 @@ function insertSlackFormat(textareaId, mode) {
   ta.setSelectionRange(ns, ne);
 }
 
-function splitEmojiPickerGraphemes(raw) {
-  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-    try {
-      return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(raw))
-        .map((x) => x.segment)
-        .filter(Boolean);
-    } catch (e) {
-      /* ignore */
-    }
-  }
-  return Array.from(raw);
-}
-
 /** Large Unicode emoji set — system font renders each; scroll for more. */
 const FORMAT_EMOJI_PICKER_RAW = "😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠💩🤡👹👺👻👽👾🤖😺😸😹😻😼😽🙀😿😾👋🤚🖐✋🖖👌🤌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🫀🫁🦷🦴👀👁👅👄❤🧡💛💚💙💜🖤🤍🤎💔❣💕💞💓💗💖💘💝💟☮✝☪🕉☸✡🔯🪄🪅🎴🎭🖼🎨🔮🧿🐵🐒🦍🦧🐶🐕🦮🐩🐺🦊🦝🐱🐈🦁🐯🐅🐆🐴🐎🦄🦓🦌🦬🐮🐂🐃🐄🐷🐖🐗🐽🐏🐑🐐🐪🐫🦙🦒🐘🦣🦏🦛🐭🐁🐀🐹🐰🐇🐿🦫🦔🦇🐻🐨🐼🐾🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦤🪶🦩🦚🦜🐸🐊🐢🦎🐍🐲🐉🦕🦖🐳🐋🐬🦭🐟🐠🐡🦈🐙🐚🪸🐌🦋🐛🐜🐝🪲🐞🦗🪳🕷🕸🦂🦟🪰🪱🦠💐🌸💮🌹🥀🌺🌻🌼🌷🪻🌱🪴🌲🌳🌴🌵🌾🌿☘🍀🍁🍂🍃🪹🪺🍄🍇🍈🍉🍊🍋🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🥥🥑🍆🥔🥕🌽🌶🫑🥒🥬🥦🧄🧅🥜🫘🌰🍞🥐🥖🫓🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🫔🥙🧆🥚🍳🥘🍲🫕🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🦪🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🥤🧋🧃🧉🧊🥢🍽🍴🥄🔪🫙🌍🌎🌏🌐🗺🧭🏔⛰🌋🗻🏕🏖🏜🏝🏞🏟🏛🏗🧱🪨🪵🛖🏘🏚🏠🏡🏢🏣🏤🏥🏦🏨🏩🏪🏫🏬🏭🏯🏰💒🗼🗽⛪🕌🛕🕍⛩🕋⛲⛺🌁🌃🌄🌅🌆🌇🌉♨🎠🛝🎡🎢💈🎪🚂🚃🚄🚅🚆🚇🚈🚉🚊🚝🚞🚋🚌🚍🚎🚐🚑🚒🚓🚔🚕🚖🚗🚘🚙🛻🚚🚛🚜🏎🏍🛵🦽🦼🛺🚲🛴🛹🛼🚏🛣🛤⛽🚨🚥🚦🛑🚧⚓🛟⛵🛶🚤🛳⛴🛥🚢✈🛩🛫🛬🪂💺🚁🚟🚠🚡🛰🚀🛸🪐🌠🌌⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🪀🏓🏸🏒🏑🥍🏏🪃🥅⛳🪁🏹🎣🤿🥊🥋🎽🛷⛸🥌🎿⛷🏂🏋🤼🤸🤺⛹🤹🧘🏌🏇🧗🚵🚴🏆🥇🥈🥉🏅🎖🏵🎗🎫🎟🩰🎬🎤🎧🎼🎹🥁🪘🎷🎺🎸🪕🎻🪈🎲♟🎯🎳🎮🕹🎰🧩📱📲☎📞📟📠🔋🪫🔌💻🖥🖨⌨🖱🖲💽💾💿📀🧮🎥🎞📽📺📷📸📹📼🔍🔎🕯💡🔦🏮🪔📔📕📖📗📘📙📚📓📒📃📜📄📰🗞📑🔖🏷💰🪙💴💵💶💷💸💳🧾✉📧📨📩📤📥📦📫📪📬📭📮🗳✏✒🖋🖊🖌🖍📝💼📁📂🗂📅📆🗒🗓📇📈📉📊📋📌📍📎🖇📏📐✂🗃🗄🗑🔒🔓🔏🔐🔑🗝🔨🪓⛏⚒🛠🗡⚔🔫🛡🔧🪛🔩⚙🗜⚖🦯🔗⛓🪝🧰🧲🪜💯💢💥💫💦💨🕳💬🗨🗯💭💤🔔🔕📣📢📿🏧🚮🚰♿🚹🚺🚻🚼🚾🛂🛃🛄🛅⚠🚸⛔🚫🚳🚭🚯🚱🚷📵🔞☢☣⬆↗➡↘⬇↙⬅↖↕↔↩↪⤴⤵🔃🔄🔙🔚🔛🔜🔝🛐⚛☯🕎♈♉♊♋♌♍♎♏♐♑♒♓⛎🔀🔁🔂▶⏩⏭⏯◀⏪⏮🔼⏫🔽⏬⏸⏹⏺⏏🎦🔅🔆📶📳📴♀♂⚧✖➕➖➗🟰♾‼⁉❓❔❕❗〰💱💲⚕♻❇✳❎🆎🆑🆘📛🔠🔡🔢🔣🔤⌚⏰⏱⏲🕰🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕡🕖🕢🕗🕣🕘🕤🕙🕥🕚🕦🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝🌞⭐🌟☀🌤⛅🌥☁🌦🌧⛈🌩🌨❄☃⛄🌬🌪🌫🌈☂☔⛱⚡🔥💧🌊🎃🎄🎆🎇🧨✨🎈🎉🎊🎋🎍🎎🎏🎐🎑🧧🎀🎁🧸🪆🃏🀄";
-const FORMAT_EMOJI_PICKER_CHARS = splitEmojiPickerGraphemes(FORMAT_EMOJI_PICKER_RAW);
+const FORMAT_EMOJI_PICKER_CHARS = Array.from(FORMAT_EMOJI_PICKER_RAW);
+const FMT_EMOJI_PICKER_INLINE_STYLE = "font-family:'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji','Twemoji Mozilla',emoji,system-ui,sans-serif;color:inherit;";
 
 function escFmtAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -2675,7 +2663,7 @@ function fillFmtEmojiPickerGrids() {
     if (!tid) return;
     ensureFmtEmojiGridShell(grid);
     grid.innerHTML = FORMAT_EMOJI_PICKER_CHARS.map(ch =>
-      '<span role="button" tabindex="0" class="fmt-emoji fmt-emoji-picker-cell" data-emoji-target="' + escFmtAttr(tid) + '" data-ch="' + escFmtAttr(ch) + '" title="Insert" aria-label="Insert emoji">' + ch + '</span>'
+      '<button type="button" class="fmt-btn fmt-emoji fmt-emoji-picker-cell" style="' + FMT_EMOJI_PICKER_INLINE_STYLE + '" data-emoji-target="' + escFmtAttr(tid) + '" data-ch="' + escFmtAttr(ch) + '" title="Insert" aria-label="Insert emoji">' + ch + '</button>'
     ).join('');
     requestAnimationFrame(() => {
       const shell = grid.closest('.fmt-emoji-grid-shell');
@@ -3093,20 +3081,16 @@ document.addEventListener('DOMContentLoaded', () => {
       renderSessionNotesEditor();
     });
   }
-  function handleFmtEmojiPickerActivateInstr(pick, e) {
-    if (!pick) return;
-    if (e) e.preventDefault();
-    const tid = pick.getAttribute('data-emoji-target');
-    const ch = pick.getAttribute('data-ch');
-    if (tid && ch != null) insertEmoji(tid, ch);
-    const shellPick = pick.closest('.fmt-emoji-grid-shell');
-    const detPick = (shellPick && shellPick._fmtEmojiDetails) || pick.closest('details');
-    if (detPick) detPick.open = false;
-  }
   document.body.addEventListener('click', (e) => {
     const pick = e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
     if (pick) {
-      handleFmtEmojiPickerActivateInstr(pick, e);
+      e.preventDefault();
+      const tid = pick.getAttribute('data-emoji-target');
+      const ch = pick.getAttribute('data-ch');
+      if (tid && ch != null) insertEmoji(tid, ch);
+      const shellPick = pick.closest('.fmt-emoji-grid-shell');
+      const detPick = (shellPick && shellPick._fmtEmojiDetails) || pick.closest('details');
+      if (detPick) detPick.open = false;
       return;
     }
     const btn = e.target.closest && e.target.closest('.rich-copy-btn');
@@ -3127,15 +3111,9 @@ document.addEventListener('DOMContentLoaded', () => {
   /* Capture so this runs before other handlers; pointerdown + touchstart for outside dismiss. */
   document.addEventListener('pointerdown', closeFmtEmojiPickersIfOutside, true);
   document.addEventListener('touchstart', closeFmtEmojiPickersIfOutside, { capture: true, passive: true });
-  document.body.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      document.querySelectorAll('details.fmt-emoji-more[open]').forEach((d) => { d.open = false; });
-      return;
-    }
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const pick = e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
-    if (!pick) return;
-    handleFmtEmojiPickerActivateInstr(pick, e);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('details.fmt-emoji-more[open]').forEach((d) => { d.open = false; });
   });
 });
 
