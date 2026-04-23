@@ -798,6 +798,9 @@
     /* Picker is often moved to document.body; host / embed CSS must not replace this with a non-emoji font. */
     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Twemoji Mozilla', emoji, system-ui, sans-serif;
     color: var(--text);
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    direction: ltr;
   }
   .fmt-emoji-grid-shell.fmt-emoji-grid-shell--flip-above {
     top: auto;
@@ -851,6 +854,8 @@
     height: auto;
     margin: 0;
     padding: 0.45rem;
+    writing-mode: horizontal-tb;
+    direction: ltr;
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     grid-auto-rows: auto;
@@ -919,6 +924,10 @@
     background: transparent;
     box-shadow: none;
     -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    unicode-bidi: isolate;
     font-variant-emoji: emoji;
     color: var(--text) !important;
     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Twemoji Mozilla', emoji, system-ui, sans-serif !important;
