@@ -912,6 +912,9 @@
     place-items: center;
     place-content: center;
     border-radius: 8px;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
     white-space: nowrap;
     overflow: visible;
     line-height: 1.15;
@@ -928,12 +931,22 @@
     pointer-events: none;
     font-family: inherit;
   }
+  .fmt-emoji-grid .fmt-btn.fmt-emoji.fmt-emoji-picker-cell::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+  }
+  .fmt-emoji-grid .fmt-btn.fmt-emoji.fmt-emoji-picker-cell:active {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
   .fmt-emoji-grid .fmt-btn.fmt-emoji.fmt-emoji-picker-cell:hover {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    border: 0 !important;
+    box-shadow: none !important;
   }
   .fmt-emoji-grid .fmt-btn.fmt-emoji.fmt-emoji-picker-cell:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
+    outline: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 2px;
   }
   .modal .format-toolbar { margin-top: 0.35rem; margin-bottom: 0.65rem; }
   .ask-box textarea {
