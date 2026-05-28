@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Session images: question pastes and answer pastes
+    // This app has no Firebase Auth — all users are anonymous.
+    match /sessions/{sessionId}/question_paste/{filename} {
+      allow read: if true;
+      // Only JPEG uploads up to 8 MB (event-scale images are resized client-side before upload)
+      allow write: if request.resource.size <= 8 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
+    }
+
+    match /sessions/{sessionId}/answer_paste/{filename} {
+      allow read: if true;
+      allow write: if request.resource.size <= 8 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
+    }
+
+    // Deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

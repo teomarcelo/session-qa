@@ -1,6 +1,6 @@
 import firebase from '../lib/firebaseCompat.js';
 import { FIREBASE_CONFIG } from '../config/firebase.js';
-import { QUESTIONS_PAGE_SIZE } from '../constants/app.js';
+import { QUESTIONS_PAGE_SIZE, IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY } from '../constants/app.js';
 import { INSTRUCTOR_PIN_PEPPER } from '../constants/auth.js';
 import { esc, formatRichMessage, isHttpsUrl, copyRichCodeBlock } from '../lib/richText.js';
 import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../lib/sessionLaunch.js';
@@ -1055,9 +1055,6 @@ function restoreAnswerDrafts() {
   answerEditSkipEmptyCaptureOnce = false;
 }
 
-const IMG_MAX_EDGE = 1600;
-const IMG_JPEG_Q = 0.82;
-
 function collectImageFilesFromPaste(ev) {
   const out = [];
   const cd = ev.clipboardData;
@@ -1085,12 +1082,12 @@ function resizeImageToJpegBlobInstr(file) {
     img.onload = () => {
       URL.revokeObjectURL(u);
       const w = img.width, h = img.height;
-      const scale = Math.min(1, IMG_MAX_EDGE / Math.max(w, h, 1));
+      const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(w, h, 1));
       const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
       const c = document.createElement('canvas');
       c.width = cw; c.height = ch;
       c.getContext('2d').drawImage(img, 0, 0, cw, ch);
-      c.toBlob(blob => { if (blob) resolve(blob); else reject(new Error('encode')); }, 'image/jpeg', IMG_JPEG_Q);
+      c.toBlob(blob => { if (blob) resolve(blob); else reject(new Error('encode')); }, 'image/jpeg', IMAGE_JPEG_QUALITY);
     };
     img.onerror = () => { URL.revokeObjectURL(u); reject(new Error('img')); };
     img.src = u;
