@@ -39,7 +39,12 @@
     <div class="field">
       <label>Your name <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-light)">(optional)</span></label>
       <input id="name-input" type="text" placeholder="e.g. Alex">
-      <p style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--text-muted);line-height:1.4;">Use your real name, a nickname, or anything — it's just a display label. Your questions are grouped in this session by a random ID saved in this browser, not by your name. Use <strong style="font-weight:500;">Post anonymously</strong> if you don't want any label attached.</p>
+      <ul style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--text-muted);line-height:1.6;padding-left:1.1rem;">
+        <li>Use your real name, a nickname, or anything you like.</li>
+        <li>It's just a display label, not linked to any account or device.</li>
+        <li>Your questions are grouped by a random ID saved in this browser, not by your name.</li>
+        <li>Once inside, use the <strong style="font-weight:500;">Post anonymously</strong> toggle to submit without any name attached.</li>
+      </ul>
     </div>
     <button class="btn-primary" id="join-btn" onclick="joinSession()">Join session</button>
     <p class="error-msg" id="join-error"></p>
