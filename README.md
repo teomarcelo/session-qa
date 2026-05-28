@@ -87,6 +87,45 @@ Details for maintainers may live in a private notes file; this README stays high
 
 ---
 
+## Privacy & data handling
+
+This section documents what data the app collects and stores, for compliance purposes (e.g. Salesforce data handling policies).
+
+### What is stored in Firebase Firestore
+
+| Data | Where | Notes |
+|------|-------|-------|
+| Question text | `sessions/{code}/questions/{id}` | Entered by the student |
+| `authorName` | same document | The display name the student typed, or `"Anonymous"` if they left it blank or toggled **Post anonymously** |
+| `authorId` | same document | A random UUID generated in the student's browser on first visit — no name, email, or device info attached |
+| `voters` array | same document | List of `authorId` UUIDs — no PII |
+| Session feedback | `sessions/{code}/sessionFeedback/{id}` | Subject + message only; Firestore rules enforce exactly those 3 fields — no name or identity stored |
+| Instructor account | `instructors/{id}` | Display name + hashed PIN chosen by the instructor |
+
+### What is NOT stored
+
+- No email addresses, employee IDs, or Salesforce org IDs
+- No IP addresses or device fingerprints
+- No authentication tokens (the app has no Firebase Auth)
+- `authorEmail` field exists in question documents but is always written as an empty string `""`
+
+### How `authorName` works
+
+The student name field is **optional**. If a student types a name, it is:
+
+1. Saved to `localStorage` on their own device (for pre-filling the form on return visits).
+2. Written to Firestore as `authorName` on any question they submit — visible to instructors in the dashboard.
+
+If the student leaves the name blank, or enables the **Post anonymously** toggle before submitting, `authorName` is stored as `"Anonymous"` and no real name ever leaves their device.
+
+The `authorId` UUID cannot be linked back to a person without physical access to the device that generated it.
+
+### Summary
+
+The only personal data in Firestore is a self-reported, optional display name attached to questions. It is not collected for any purpose beyond showing instructors who asked what during a session. No sensitive, regulated, or account-level Salesforce data is stored.
+
+---
+
 ## Setup
 
 See **`SETUP.md`** for Firebase config, security rules, hosting, and how to run a session end to end (including the Vite build step for production).
