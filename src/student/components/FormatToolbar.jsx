@@ -285,7 +285,7 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
         <button
           ref={summaryRef}
           type="button"
-          className="fmt-more-summary"
+          className="fmt-btn fmt-more-summary"
           title="More emojis — opens below or above to fit (Unicode)"
           aria-expanded={pickerOpen}
           onClick={() => setPickerOpen((o) => !o)}

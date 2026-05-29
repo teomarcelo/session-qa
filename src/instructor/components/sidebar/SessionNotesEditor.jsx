@@ -317,6 +317,7 @@ export default function SessionNotesEditor() {
       return;
     }
 
+    if (!db) { showToast('Firebase not available.'); return; }
     try {
       await db.collection('sessions').doc(activeSessionCode).update(payload);
       const updated = allSessions.map(s =>

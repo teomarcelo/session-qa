@@ -212,7 +212,7 @@ export default function AppScreen({
   const showPagination = !searchQuery && !!(sessionCode && db && questionPages.length > 0);
 
   return (
-    <div id="app-screen">
+    <div id="app-screen" style={{ display: 'block' }}>
       {/* Top bar */}
       <div className="top-bar">
         <div className="top-bar-left">

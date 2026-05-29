@@ -74,7 +74,7 @@ export default function JoinScreen({ storedName, joinError, joining, onJoin }) {
   const errorMsg = localError || joinError || '';
 
   return (
-    <div id="join-screen">
+    <div id="join-screen" style={{ display: 'flex' }}>
       <div className="join-card">
         <div className="join-logo">
           <div className="join-logo-mark">

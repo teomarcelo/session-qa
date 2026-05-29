@@ -10,6 +10,8 @@ import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import useInstructorStore from '../store/useInstructorStore.js';
 import AnswerBox from './AnswerBox.jsx';
 
+const EMPTY_ARR = [];
+
 function normalizeQuestionImageUrls(q) {
   const raw = q.imageUrls;
   if (raw == null) return [];
@@ -47,7 +49,7 @@ export default function QuestionCard({ q, showToast }) {
   const toast = showToast || _showToast;
 
   const answerDraft = useInstructorStore(s => s.answerDrafts[q.id] ?? '');
-  const pendingImages = useInstructorStore(s => s.pendingAnswerImages[q.id] || []);
+  const pendingImages = useInstructorStore(s => s.pendingAnswerImages[q.id] ?? EMPTY_ARR);
 
   const isEditing = !!(answerEditState && answerEditState.qId === q.id);
 
@@ -122,6 +124,7 @@ export default function QuestionCard({ q, showToast }) {
       return;
     }
 
+    if (!db) { toast('Firebase not available.'); return; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update({
         answers: updatedAnswers,
@@ -163,6 +166,7 @@ export default function QuestionCard({ q, showToast }) {
 
     const patch = { answers: updatedAnswers, answer: '', status };
     if (status === 'pending') patch.answeredVerbally = false;
+    if (!db) { toast('Firebase not available.'); return; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update(patch);
       toast('Answer removed.');
@@ -178,6 +182,7 @@ export default function QuestionCard({ q, showToast }) {
       toast(newPinned ? 'Question pinned!' : 'Unpinned.');
       return;
     }
+    if (!db) { toast('Firebase not available.'); return; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update({ pinned: !q.pinned });
       toast(q.pinned ? 'Unpinned.' : 'Question pinned!');
@@ -200,6 +205,7 @@ export default function QuestionCard({ q, showToast }) {
     const patch = status === 'answered'
       ? { status, answeredVerbally: true }
       : { status, answeredVerbally: false };
+    if (!db) { toast('Firebase not available.'); return; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update(patch);
       toast(status === 'answered' ? 'Marked as answered verbally.' : 'Marked as pending.');
@@ -332,12 +338,15 @@ export default function QuestionCard({ q, showToast }) {
       <AnswerBox
         qId={q.id}
         isEditing={isEditing}
-        onSave={saveAnswer}
         onCancelEdit={cancelEditAnswer}
       />
 
       {/* Action buttons */}
       <div className="q-actions">
+        <button type="button" className="action-btn btn-answer" onClick={saveAnswer}>
+          <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+          <span>{isEditing ? 'Update answer' : 'Save answer'}</span>
+        </button>
         <button type="button" className="action-btn btn-done" onClick={() => setStatus('answered')}>
           <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           <span>Answered verbally</span>

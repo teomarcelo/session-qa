@@ -19,6 +19,23 @@ const FMT_EMOJI_PICKER_INLINE_STYLE =
   "color:inherit;border:0!important;box-shadow:none!important;background:transparent!important;";
 
 // ── Toolbar insertion helpers (vanilla DOM, not React state) ───
+
+/**
+ * setNativeValue — sets a textarea/input value in a way that triggers React's
+ * synthetic onChange. React 16+ tracks the internal value via a _valueTracker;
+ * we must go through the native setter so React detects the change and fires
+ * onChange when we subsequently dispatch the 'input' event.
+ */
+function setNativeValue(el, value) {
+  const descriptor = Object.getOwnPropertyDescriptor(el, 'value') ||
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
+  if (descriptor && descriptor.set) {
+    descriptor.set.call(el, value);
+  } else {
+    el.value = value;
+  }
+}
+
 export function insertSlackFormat(textareaId, mode) {
   const ta = document.getElementById(textareaId);
   if (!ta) return;
@@ -36,7 +53,7 @@ export function insertSlackFormat(textareaId, mode) {
       ins = '\n```\n\n```\n';
       c0 = c1 = start + openLen;
     }
-    ta.value = v.slice(0, start) + ins + v.slice(end);
+    setNativeValue(ta, v.slice(0, start) + ins + v.slice(end));
     ta.focus();
     ta.setSelectionRange(c0, c1);
     // Trigger React onChange so the store stays in sync
@@ -52,7 +69,7 @@ export function insertSlackFormat(textareaId, mode) {
     default: return;
   }
   ins = before + mid + after;
-  ta.value = v.slice(0, start) + ins + v.slice(end);
+  setNativeValue(ta, v.slice(0, start) + ins + v.slice(end));
   ta.focus();
   const ns = start + before.length;
   const ne = ns + mid.length;
@@ -66,7 +83,7 @@ export function insertEmoji(textareaId, ch) {
   ch = String(ch);
   const start = ta.selectionStart, end = ta.selectionEnd;
   const v = ta.value;
-  ta.value = v.slice(0, start) + ch + v.slice(end);
+  setNativeValue(ta, v.slice(0, start) + ch + v.slice(end));
   ta.focus();
   const p = start + ch.length;
   ta.setSelectionRange(p, p);

@@ -719,6 +719,16 @@
   .rich-message strong { font-weight: 600; }
   .rich-message em { font-style: italic; }
   .rich-message del { text-decoration: line-through; opacity: 0.9; }
+  .rich-message a {
+    color: var(--accent-hover);
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+    word-break: break-word;
+  }
+  .rich-message a:hover {
+    color: var(--accent);
+  }
   .rich-message .rich-code {
     font-family: 'DM Mono', ui-monospace, monospace;
     font-size: 0.88em;

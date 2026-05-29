@@ -144,7 +144,6 @@ export function getDemoHiddenSessionIds() {
 
 export function useInstructorAuth() {
   const { db } = useFirebase();
-  const store = useInstructorStore();
 
   const login = useCallback(async (name, pin) => {
     if (!name) return 'Please enter your name.';
@@ -157,13 +156,13 @@ export function useInstructorAuth() {
       const stored = doc.data();
       const hash = await hashPin(pin);
       if (hash !== stored.pinHash) return 'Incorrect PIN. Try again.';
-      store.setCurrentInstructor(stored.displayName);
+      useInstructorStore.getState().setCurrentInstructor(stored.displayName);
       writeInstructorNameToStorage(stored.displayName);
       return null; // success
     } catch (e) {
       return 'Connection error. Please try again.';
     }
-  }, [db, store]);
+  }, [db]);
 
   const register = useCallback(async (name, pin, pin2) => {
     if (!name) return 'Please enter your name.';
@@ -181,28 +180,28 @@ export function useInstructorAuth() {
         sessionsHiddenFromList: [],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
-      store.setCurrentInstructor(name);
+      useInstructorStore.getState().setCurrentInstructor(name);
       writeInstructorNameToStorage(name);
       setInstructorOnboardingWelcomeFlag();
       return null; // success
     } catch (e) {
       return 'Error creating account. Please try again.';
     }
-  }, [db, store]);
+  }, [db]);
 
   const logout = useCallback(() => {
     clearInstructorBrowserSessionKeys();
     persistInstructorActiveSession(null);
     setInstructorOnboardingWelcomeFlag();
-    store.resetForLogin();
-  }, [store]);
+    useInstructorStore.getState().resetForLogin();
+  }, []);
 
   const enterDemo = useCallback(() => {
-    store.setCurrentInstructor('Alex Rivera (Demo)');
-    store.setIsDemoMode(true);
+    useInstructorStore.getState().setCurrentInstructor('Alex Rivera (Demo)');
+    useInstructorStore.getState().setIsDemoMode(true);
     writeInstructorNameToStorage('Alex Rivera (Demo)');
     writeIsDemoToStorage('true');
-  }, [store]);
+  }, []);
 
   return { login, register, logout, enterDemo };
 }

@@ -26,6 +26,7 @@ export default function DeleteModal() {
       return;
     }
 
+    if (!db) { showToast('Firebase not available.'); closeDeleteModal(); return; }
     setInProgress(true);
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(rid).delete();

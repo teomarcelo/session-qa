@@ -6,11 +6,13 @@
 import useInstructorStore from '../store/useInstructorStore.js';
 import FormatToolbar from './FormatToolbar.jsx';
 
-export default function AnswerBox({ qId, isEditing, onSave, onCancelEdit }) {
+const EMPTY_ARR = [];
+
+export default function AnswerBox({ qId, isEditing, onCancelEdit }) {
   // Controlled: read/write from Zustand store — no captureAnswerDrafts needed
   const draft = useInstructorStore(s => s.answerDrafts[qId] ?? '');
   const setAnswerDraft = useInstructorStore(s => s.setAnswerDraft);
-  const pendingImages = useInstructorStore(s => s.pendingAnswerImages[qId] || []);
+  const pendingImages = useInstructorStore(s => s.pendingAnswerImages[qId] ?? EMPTY_ARR);
   const setPendingAnswerImages = useInstructorStore(s => s.setPendingAnswerImages);
   const showToast = useInstructorStore(s => s.showToast);
 
@@ -71,16 +73,6 @@ export default function AnswerBox({ qId, isEditing, onSave, onCancelEdit }) {
         onChange={e => setAnswerDraft(qId, e.target.value)}
       />
 
-      <div style={{ marginTop: '0.4rem' }}>
-        <button
-          type="button"
-          className="action-btn btn-answer"
-          onClick={onSave}
-        >
-          <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-          <span>{isEditing ? 'Update answer' : 'Save answer'}</span>
-        </button>
-      </div>
     </div>
   );
 }

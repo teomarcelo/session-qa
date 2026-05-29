@@ -12,7 +12,6 @@ import {
 
 export function useSessions() {
   const { db } = useFirebase();
-  const store = useInstructorStore();
   const unsubRef = useRef(null);
 
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
@@ -56,8 +55,8 @@ export function useSessions() {
 
           const mergeAndUpdate = (joined) => {
             const merged = applyHidden([...owned, ...joined]);
-            store.setAllSessions(merged);
-            store.setInstructorSessionsHydrated(true);
+            useInstructorStore.getState().setAllSessions(merged);
+            useInstructorStore.getState().setInstructorSessionsHydrated(true);
             tryRestoreActiveSession(merged);
           };
 
@@ -75,9 +74,9 @@ export function useSessions() {
         });
       }, err => {
         console.error('loadSessions error:', err);
-        store.setAllSessions([]);
-        store.setInstructorSessionsHydrated(true);
-        store.showToast('Error loading sessions: ' + err.message);
+        useInstructorStore.getState().setAllSessions([]);
+        useInstructorStore.getState().setInstructorSessionsHydrated(true);
+        useInstructorStore.getState().showToast('Error loading sessions: ' + err.message);
       });
 
     unsubRef.current = unsub;
@@ -92,15 +91,15 @@ export function useSessions() {
   function loadDemoSessions() {
     const hidden = getDemoHiddenSessionIds();
     const sessions = [DEMO_SESSION].filter(s => !hidden.includes(s.id));
-    store.setAllSessions(sessions);
-    store.setInstructorSessionsHydrated(true);
+    useInstructorStore.getState().setAllSessions(sessions);
+    useInstructorStore.getState().setInstructorSessionsHydrated(true);
 
     if (sessions.length) {
-      store.setActiveSessionCode(DEMO_SESSION_CODE);
+      useInstructorStore.getState().setActiveSessionCode(DEMO_SESSION_CODE);
       const qs = DEMO_QUESTIONS_TEMPLATE.map(q => ({ ...q, voters: [...q.voters] }));
-      store.setQuestionPages([{ questions: qs, endSnap: null }]);
-      store.setCurrentPage(0);
-      store.setInstructorOlderBeyondLoadExhausted(true);
+      useInstructorStore.getState().setQuestionPages([{ questions: qs, endSnap: null }]);
+      useInstructorStore.getState().setCurrentPage(0);
+      useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(true);
       persistInstructorActiveSession(DEMO_SESSION_CODE);
     }
   }
@@ -112,7 +111,7 @@ export function useSessions() {
     try { saved = readInstructorActiveSessionFromStorage(); } catch (e) { return; }
     if (!saved || !sessions.length) return;
     if (sessions.some(s => s.id === saved)) {
-      store.setActiveSessionCode(saved);
+      useInstructorStore.getState().setActiveSessionCode(saved);
     } else {
       try {
         sessionStorage.removeItem('sqa_instructor_active_session');
@@ -126,16 +125,16 @@ export function useSessions() {
     const finishHide = () => {
       const wasActive = state.activeSessionCode === sessionCode;
       const newSessions = state.allSessions.filter(s => s.id !== sessionCode);
-      store.setAllSessions(newSessions);
+      useInstructorStore.getState().setAllSessions(newSessions);
       if (wasActive) {
         if (newSessions.length) {
-          store.setActiveSessionCode(newSessions[0].id);
+          useInstructorStore.getState().setActiveSessionCode(newSessions[0].id);
         } else {
-          store.setActiveSessionCode(null);
+          useInstructorStore.getState().setActiveSessionCode(null);
           persistInstructorActiveSession(null);
         }
       }
-      store.showToast('Removed from your list. Join with the code again to restore it.');
+      useInstructorStore.getState().showToast('Removed from your list. Join with the code again to restore it.');
     };
 
     if (state.isDemoMode) {
@@ -155,7 +154,7 @@ export function useSessions() {
         sessionsHiddenFromList: firebase.firestore.FieldValue.arrayUnion(sessionCode),
       });
     } catch (e) {
-      store.showToast('Could not update list: ' + (e.message || e));
+      useInstructorStore.getState().showToast('Could not update list: ' + (e.message || e));
       return;
     }
     finishHide();

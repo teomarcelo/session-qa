@@ -9,7 +9,7 @@
  * - Stats refresh wiring
  * - Session notes hydration when active session changes
  */
-import { useEffect, useRef } from 'react';
+import { Component, useEffect, useRef } from 'react';
 import { IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY } from '../../constants/app.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import useInstructorStore, { DEMO_SESSION, DEMO_SESSION_CODE, DEMO_QUESTIONS_TEMPLATE } from '../store/useInstructorStore.js';
@@ -162,8 +162,43 @@ function resizeImageToJpeg(file) {
   });
 }
 
+// ── Error boundary — catches render errors and shows the message ─
+class DashboardErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[DashboardErrorBoundary] render error:', error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '2rem', fontFamily: 'monospace', color: '#c00', background: '#fff8f8', border: '2px solid #c00', borderRadius: 8, margin: '2rem', maxWidth: 800 }}>
+          <strong>Dashboard render error (click a session):</strong>
+          <pre style={{ marginTop: '1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem' }}>
+            {String(this.state.error)}
+            {'\n\n'}
+            {this.state.error.stack || ''}
+          </pre>
+          <button
+            onClick={() => this.setState({ error: null })}
+            style={{ marginTop: '1rem', padding: '0.4rem 1rem', cursor: 'pointer' }}
+          >
+            Dismiss (try again)
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Dashboard component ────────────────────────────────────────
-export default function Dashboard() {
+function DashboardInner() {
   const { db, storage } = useFirebase();
   const { logout } = useInstructorAuth();
   const { updateStats, cancelPending, runRefresh } = useSessionStats();
@@ -447,5 +482,13 @@ export default function Dashboard() {
         </div>
       )}
     </>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <DashboardErrorBoundary>
+      <DashboardInner />
+    </DashboardErrorBoundary>
   );
 }

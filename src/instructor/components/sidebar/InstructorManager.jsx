@@ -30,6 +30,7 @@ export default function InstructorManager() {
       setAllSessions(updated);
       return;
     }
+    if (!db) { throw new Error('Firebase not available.'); }
     await db.collection('sessions').doc(activeSessionCode).update({
       instructors: newInstructors,
       instructorNames: newInstructors.join(', '),

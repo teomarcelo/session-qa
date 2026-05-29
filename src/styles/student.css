@@ -148,7 +148,8 @@
   .error-msg { color: var(--warn); font-size: 0.88rem; margin-top: 0.75rem; text-align: center; }
 
   /* ── MAIN APP ── */
-  #app-screen { display: none; min-height: 100vh; }
+  /* React controls when #app-screen is in the DOM — no need to hide it by default. */
+  #app-screen { display: block; min-height: 100vh; }
 
   .top-bar {
     background: white;
@@ -716,7 +717,8 @@
   }
   .fmt-emoji-more { position: relative; z-index: 0; }
   .fmt-emoji-more[open] { z-index: 620; }
-  .format-toolbar-rail .fmt-emoji-more summary.fmt-more-summary {
+  .format-toolbar-rail .fmt-emoji-more summary.fmt-more-summary,
+  .format-toolbar-rail button.fmt-more-summary {
     list-style: none;
     min-width: 34px;
     height: 34px;
@@ -765,12 +767,14 @@
     font-size: 0.8rem;
     border-radius: 5px;
   }
-  .format-toolbar-rail .fmt-emoji-more summary.fmt-more-summary:hover {
+  .format-toolbar-rail .fmt-emoji-more summary.fmt-more-summary:hover,
+  .format-toolbar-rail button.fmt-more-summary:hover {
     border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
     box-shadow: none;
   }
   .fmt-emoji-more summary.fmt-more-summary::-webkit-details-marker { display: none; }
-  .fmt-emoji-more summary.fmt-more-summary:hover {
+  .fmt-emoji-more summary.fmt-more-summary:hover,
+  .format-toolbar-rail button.fmt-more-summary:hover {
     color: var(--accent);
     background: var(--accent-light);
   }
@@ -1125,6 +1129,16 @@
   .rich-message strong { font-weight: 600; }
   .rich-message em { font-style: italic; }
   .rich-message del { text-decoration: line-through; opacity: 0.9; }
+  .rich-message a {
+    color: var(--accent-hover);
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+    word-break: break-word;
+  }
+  .rich-message a:hover {
+    color: var(--accent);
+  }
   .rich-message .rich-code {
     font-family: 'DM Mono', ui-monospace, monospace;
     font-size: 0.88em;
@@ -1431,11 +1445,10 @@
   }
   .toast.show { transform: translateY(0); opacity: 1; }
 
-  /* Avoid a flash of the join screen on hard refresh when we will auto-rejoin (class set by inline script below). */
-  html.std-restoring-session #join-screen {
-    display: none !important;
-  }
-  html.std-restoring-session #app-screen {
-    display: block !important;
-    min-height: 100vh;
-  }
+  /*
+   * NOTE: The old vanilla JS app used html.std-restoring-session to toggle
+   * #join-screen and #app-screen visibility via CSS while both divs were
+   * always present in the DOM. In the React app, React controls which screen
+   * is rendered — these rules are no longer needed and have been removed to
+   * prevent them from hiding React-rendered components.
+   */

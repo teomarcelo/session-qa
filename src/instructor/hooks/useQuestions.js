@@ -9,7 +9,6 @@ export function useQuestions() {
 
   const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
-  const store = useInstructorStore();
 
   // Subscribe to questions when active session changes (non-demo)
   useEffect(() => {
@@ -22,8 +21,8 @@ export function useQuestions() {
     if (!activeSessionCode || isDemoMode || !db) return;
 
     // Clear old state when switching sessions
-    store.setCurrentPage(0);
-    store.setInstructorOlderBeyondLoadExhausted(false);
+    useInstructorStore.getState().setCurrentPage(0);
+    useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(false);
 
     const unsub = db.collection('sessions').doc(activeSessionCode).collection('questions')
       .orderBy('createdAt', 'desc')
@@ -35,15 +34,16 @@ export function useQuestions() {
         const state = useInstructorStore.getState();
         // Only update page 0 from snapshot (don't clobber older pages we fetched)
         if (state.currentPage === 0) {
-          const newPages = [{ questions, endSnap }, ...(state.questionPages.slice(1))];
-          // Trim to just page 0 when on first page — keep it fresh
-          store.setQuestionPages([{ questions, endSnap }]);
-          store.setInstructorOlderBeyondLoadExhausted(questions.length < QUESTIONS_PAGE_SIZE);
+          // Preserve any older pages already loaded (pages 1, 2, ...); refresh only page 0.
+          const newPages = [{ questions, endSnap }, ...state.questionPages.slice(1)];
+          useInstructorStore.getState().setQuestionPages(newPages);
+          useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(questions.length < QUESTIONS_PAGE_SIZE);
         } else {
-          // Update page 0 in place but don't navigate
+          // Update page 0 in place but don't navigate away from the current page.
           const newPages = [...state.questionPages];
           newPages[0] = { questions, endSnap };
-          useInstructorStore.setState({ questionPages: newPages });
+          // Use setQuestionPages so allQuestions stays in sync with currentPage.
+          useInstructorStore.getState().setQuestionPages(newPages);
         }
       });
 
@@ -60,7 +60,7 @@ export function useQuestions() {
     const state = useInstructorStore.getState();
     if (zeroBased < 0 || zeroBased >= state.questionPages.length || !state.questionPages[zeroBased]) return;
     if (zeroBased === state.currentPage) return;
-    store.setCurrentPage(zeroBased);
+    useInstructorStore.getState().setCurrentPage(zeroBased);
   };
 
   const goPreviousPage = () => {
@@ -90,7 +90,7 @@ export function useQuestions() {
     if (!cur || !cur.endSnap || cur.questions.length < QUESTIONS_PAGE_SIZE) return;
     if (state.instructorOlderBeyondLoadExhausted) return;
 
-    store.setQuestionsLoading(true);
+    useInstructorStore.getState().setQuestionsLoading(true);
     try {
       const snap = await db.collection('sessions').doc(state.activeSessionCode).collection('questions')
         .orderBy('createdAt', 'desc')
@@ -99,7 +99,7 @@ export function useQuestions() {
         .get();
 
       if (!snap.docs.length) {
-        store.setInstructorOlderBeyondLoadExhausted(true);
+        useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(true);
         return;
       }
 
@@ -111,14 +111,14 @@ export function useQuestions() {
       const newPages = [...latestState.questionPages];
       newPages[nextIdx] = { questions, endSnap };
 
-      store.setInstructorOlderBeyondLoadExhausted(snap.docs.length < QUESTIONS_PAGE_SIZE);
+      useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(snap.docs.length < QUESTIONS_PAGE_SIZE);
       useInstructorStore.setState({ questionPages: newPages });
-      store.setCurrentPage(nextIdx);
+      useInstructorStore.getState().setCurrentPage(nextIdx);
     } catch (e) {
       console.error('Load older questions failed:', e);
-      store.showToast('Error loading older questions: ' + e.message);
+      useInstructorStore.getState().showToast('Error loading older questions: ' + e.message);
     } finally {
-      store.setQuestionsLoading(false);
+      useInstructorStore.getState().setQuestionsLoading(false);
     }
   };
 
