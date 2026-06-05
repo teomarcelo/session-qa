@@ -356,6 +356,8 @@ export default function AppScreen({
         <SessionSidebar
           currentSession={currentSession}
           sessionCode={sessionCode}
+          userId={userId}
+          userName={userName}
           stats={stats}
           showToast={showToast}
           onOpenFeedback={() => setFeedbackOpen(true)}

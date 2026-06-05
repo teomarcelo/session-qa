@@ -1,5 +1,46 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SessionInfo from './SessionInfo.jsx';
+import StudentChat from './StudentChat.jsx';
+
+const STU_SECTION_COLLAPSE_LS = 'sqa_student_section_collapsed_v1';
+
+function readSectionCollapsed(id, defaultVal) {
+  try {
+    const raw = localStorage.getItem(STU_SECTION_COLLAPSE_LS);
+    const o = raw ? JSON.parse(raw) : {};
+    if (Object.prototype.hasOwnProperty.call(o, id)) return !!o[id];
+  } catch (e) {}
+  return defaultVal;
+}
+
+function persistSectionCollapsed(id, val) {
+  try {
+    const raw = localStorage.getItem(STU_SECTION_COLLAPSE_LS);
+    const o = raw ? JSON.parse(raw) : {};
+    o[id] = val;
+    localStorage.setItem(STU_SECTION_COLLAPSE_LS, JSON.stringify(o));
+  } catch (e) {}
+}
+
+function SideSection({ id, title, defaultCollapsed = false, children }) {
+  const [collapsed, setCollapsed] = useState(() => readSectionCollapsed(id, defaultCollapsed));
+  function toggle() {
+    setCollapsed(prev => {
+      const next = !prev;
+      persistSectionCollapsed(id, next);
+      return next;
+    });
+  }
+  return (
+    <div className={`side-section student-side-section${collapsed ? ' student-side-section--collapsed' : ''}`}>
+      <div className="student-side-section-header" onClick={toggle} style={{ cursor: 'pointer', userSelect: 'none' }}>
+        <span className="side-title" style={{ margin: 0 }}>{title}</span>
+        <span className="student-side-chevron" style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-light)', transition: 'transform 0.15s', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>▾</span>
+      </div>
+      {!collapsed && <div className="student-side-section-body">{children}</div>}
+    </div>
+  );
+}
 
 const STUDENT_SIDEBAR_LS_W = 'sqa_student_sidebar_px';
 const STUDENT_SIDEBAR_LS_COLLAPSED = 'sqa_student_sidebar_collapsed';
@@ -108,6 +149,8 @@ function toggleCollapsed(layoutEl, resizerEl) {
 export default function SessionSidebar({
   currentSession,
   sessionCode,
+  userId,
+  userName,
   stats,
   showToast,
   onOpenFeedback,
@@ -261,15 +304,13 @@ export default function SessionSidebar({
       {/* Side column */}
       <div className="side-col" id="student-side-col">
         <div className="student-sidebar-scroll">
-          <div className="side-section">
-            <div className="side-title">Session</div>
+          <SideSection id="stu-sec-session" title="Session">
             <SessionInfo
               currentSession={currentSession}
               showToast={showToast}
             />
-          </div>
-          <div className="side-section">
-            <div className="side-title">Session stats</div>
+          </SideSection>
+          <SideSection id="stu-sec-stats" title="Session stats">
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-num" id="stat-total">{stats.total}</div>
@@ -294,7 +335,16 @@ export default function SessionSidebar({
                 <div className="stat-label">Pinned</div>
               </div>
             </div>
-          </div>
+          </SideSection>
+          {sessionCode && (
+            <SideSection id="stu-sec-chat" title="Live chat">
+              <StudentChat
+                sessionCode={sessionCode}
+                userId={userId}
+                userName={userName}
+              />
+            </SideSection>
+          )}
         </div>
         <footer className="student-sidebar-footer" aria-label="Dashboard feedback">
           <p className="student-feedback-hint">
