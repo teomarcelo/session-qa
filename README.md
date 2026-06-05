@@ -14,6 +14,10 @@ Live Q&A for trainings and events. Instructors run a session with a short code; 
 | `vite.config.js`, `package.json` | [Vite](https://vitejs.dev/) multi-page build (`index` + `student` + `instructor`). **`firebase`** (npm): **`firebase/compat/app`** (+ Firestore + Storage) in **`src/lib/firebaseCompat.js`** for all reads/writes, and the same package’s modular **`getCountFromServer`** for **session-wide stat** counts (no separate CDN Firebase scripts). |
 | `SETUP.md` | Firebase project, Firestore rules, hosting, and session flow. |
 | `CHANGELOG.md` | **Timeline of recent product and doc changes** (newest first). |
+| `CLAUDE.md` | Context file for AI-assisted development (Claude Code). Not needed to run the app. |
+| `firebase.json` | Firebase CLI configuration for deploying Firestore and Storage rules. |
+| `.firebaserc` | Firebase project alias (`tdx-qa` = default project). |
+| `storage.rules` | Firebase Storage security rules (deploy via `firebase deploy --only storage`). |
 
 ### Develop and deploy
 
@@ -47,7 +51,7 @@ For a **dated history** (fixes, UI tweaks, rich text, toolbars), see **`CHANGELO
 - See session details (title, room, time, description) in the **Session** column on the right, then **Session stats** below that. At the bottom of the sidebar, **Send feedback** opens a short form (subject + message) stored anonymously under **`sessions/{code}/sessionFeedback`** (visible to the host under **Dashboard feedback** in the instructor sidebar) — no mail app, no reply. **Instructor notes** (when the host enables them): an **Instructor notes** pill on the **same row** as All / Pinned / Unanswered / Answered / **Most votes** — click to swap the main feed between **questions** and **notes** (click again, or any filter, to return to Q&A). **Most votes** toggles vote order vs newest-first (default). **Top pagination** sits **under** that filter row, then the question list (and bottom pagination). On narrow screens the sidebar stacks first, then the ask box and feed. Vote sort applies to **loaded** questions only if you have not loaded older pages.
 - Questions load in **pages** of 10 with **Load older**; the board **polls** about every 10s (your own submit or edit refreshes immediately). **Refresh** next to Search/Clear runs the same fetch on demand for that student only.
 - The **Format** row above the ask box (and in **Edit**) inserts Slack-style markers: bold, italic, strikethrough, inline code, code blocks, and common emojis; `https://` links still auto-link when posted. On the board, **fenced and inline code** in rendered messages show a small **copy** control (same idea as the instructor view).
-- **Paste screenshots** into the ask box (students) or answer box (instructors): images resize, upload to **Firebase Storage**, and show as attachments after submit (requires Storage enabled + rules — see `SETUP.md`).
+- **Paste screenshots** into the ask box (students) or answer box (instructors): images are resized and compressed client-side, uploaded to **Firebase Storage**, and shown as attachments in question and answer cards. See `SETUP.md` for Storage CORS configuration.
 - See **instructor answers** as they’re saved (including multiple answers per thread when instructors add them).
 
 ---
@@ -66,7 +70,7 @@ For a **dated history** (fixes, UI tweaks, rich text, toolbars), see **`CHANGELO
 ## Stack (today)
 
 - **Vite** bundles ES modules from `src/`; markup stays in the two HTML entry files; CSS lives under `src/styles/`. Firebase compat SDK and Fuse stay on CDNs as before.
-- Firestore holds instructors, sessions, and questions. Static hosting (GitHub Pages, Netlify, etc.) serves the **`dist/`** folder after `npm run build`.
+- Firestore holds instructors, sessions, and questions; **Firebase Storage** holds question and answer image attachments. Static hosting (GitHub Pages, Netlify, etc.) serves the **`dist/`** folder after `npm run build`.
 
 ---
 
@@ -78,10 +82,11 @@ For a **dated history** (fixes, UI tweaks, rich text, toolbars), see **`CHANGELO
 - Student **polling** (~10s) instead of a live listener on the full question list; instructor **live listener on the newest page** only.
 - **Answer drafts** preserved for instructors when the question list re-renders.
 - Question and session-note text: **line breaks**, **Slack-style rich markers** (`*bold*`, code fences, etc.), **linkified** `https://` URLs, **copy-to-clipboard on rendered code**, plus **format toolbars** on key editors (see **`CHANGELOG.md`**).
+- **Image paste** (student ask box and instructor answer box): screenshots resize client-side and upload to Firebase Storage; rendered as attachments in question and answer cards.
 
 **Still to build (when you’re ready)**
 
-- React (or similar) for cleaner UI state, Heroku + **Salesforce Files** for real uploads, Firebase **App Check** + instructor **Auth**, tighter rules for global URLs.
+- React (or similar) for cleaner UI state, Firebase **App Check** + instructor **Auth**, tighter rules for global URLs.
 
 Details for maintainers may live in a private notes file; this README stays high level.
 

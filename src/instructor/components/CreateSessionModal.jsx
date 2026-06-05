@@ -1,0 +1,206 @@
+import { useState, useEffect, useRef } from 'react';
+import firebase from '../../lib/firebaseCompat.js';
+import { useFirebase } from '../../shared/FirebaseContext.jsx';
+import useInstructorStore from '../store/useInstructorStore.js';
+import { SESSION_JOIN_PREFIX } from '../../lib/sessionCode.js';
+import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../../lib/sessionLaunch.js';
+import { sessionDateInputToDisplay } from '../../lib/sessionDateLocal.js';
+import { DEFAULT_SESSION_TIMEZONE, SESSION_TIMEZONE_OPTIONS, initSessionTimezoneSelects } from '../../lib/sessionTimezones.js';
+
+function formatDisplayTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = SESSION_JOIN_PREFIX;
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+export default function CreateSessionModal() {
+  const { db } = useFirebase();
+  const open = useInstructorStore(s => s.createSessionModalOpen);
+  const setOpen = useInstructorStore(s => s.setCreateSessionModalOpen);
+  const isDemoMode = useInstructorStore(s => s.isDemoMode);
+  const currentInstructor = useInstructorStore(s => s.currentInstructor);
+  const allSessions = useInstructorStore(s => s.allSessions);
+  const setAllSessions = useInstructorStore(s => s.setAllSessions);
+  const setActiveSessionCode = useInstructorStore(s => s.setActiveSessionCode);
+  const showToast = useInstructorStore(s => s.showToast);
+
+  const [sessionName, setSessionName] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [timezone, setTimezone] = useState(DEFAULT_SESSION_TIMEZONE);
+  const [room, setRoom] = useState('');
+  const [desc, setDesc] = useState('');
+  const [orgClaimUrl, setOrgClaimUrl] = useState('');
+  const [orgClaimCopy, setOrgClaimCopy] = useState('');
+  const [surveyUrl, setSurveyUrl] = useState('');
+  const [surveyCopy, setSurveyCopy] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const tzSelectRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      setSessionName(''); setDate(''); setTime(''); setTimezone(DEFAULT_SESSION_TIMEZONE);
+      setRoom(''); setDesc(''); setOrgClaimUrl(''); setOrgClaimCopy('');
+      setSurveyUrl(''); setSurveyCopy(''); setError(''); setLoading(false);
+      // Init timezone options
+      setTimeout(() => initSessionTimezoneSelects(), 0);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  if (isDemoMode) {
+    return null; // Demo mode can't create sessions
+  }
+
+  const handleCreate = async () => {
+    setError('');
+    if (!sessionName.trim()) { setError('Please enter a session name.'); return; }
+    if (orgClaimUrl && !/^https?:\/\//i.test(orgClaimUrl)) {
+      setError('OrgClaim link must start with http:// or https://');
+      return;
+    }
+    if (surveyUrl && !/^https:\/\//i.test(surveyUrl)) {
+      setError('Survey link must start with https://');
+      return;
+    }
+
+    const code = genCode();
+    const ownerId = currentInstructor
+      ? currentInstructor.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+      : '';
+
+    setLoading(true);
+    const sessionPayload = {
+      sessionName: sessionName.trim(),
+      instructorNames: currentInstructor || '',
+      instructors: currentInstructor ? [currentInstructor] : [],
+      sessionDate: date ? sessionDateInputToDisplay(date) : '',
+      sessionTime: time ? formatDisplayTime(time) : '',
+      sessionTimezone: timezone || DEFAULT_SESSION_TIMEZONE,
+      room: room.trim(),
+      description: desc.trim(),
+      studentOrgClaimUrl: orgClaimUrl.trim() || DEFAULT_STUDENT_ORG_CLAIM_URL,
+      studentOrgClaimCopyText: orgClaimCopy.trim(),
+      studentSurveyUrl: surveyUrl.trim(),
+      studentSurveyCopyText: surveyCopy.trim(),
+      sessionNoteShow: true,
+      sessionNotes: [],
+      sessionNoteTitle: '',
+      sessionNoteBody: '',
+      sessionNoteImageUrls: [],
+      ownerId,
+      ownerName: currentInstructor || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    try {
+      await db.collection('sessions').doc(code).set(sessionPayload);
+      const doc = await db.collection('sessions').doc(code).get();
+      if (!doc.exists) {
+        setError('Session was created but could not be loaded. Refresh the page.');
+        setOpen(false);
+        return;
+      }
+      const merged = { id: doc.id, ...doc.data() };
+      const latestSessions = useInstructorStore.getState().allSessions;
+      const idx = latestSessions.findIndex(x => x.id === code);
+      if (idx >= 0) {
+        const updated = [...latestSessions];
+        updated[idx] = { ...updated[idx], ...merged };
+        setAllSessions(updated);
+      } else {
+        setAllSessions([merged, ...latestSessions]);
+      }
+      setActiveSessionCode(code);
+      setOpen(false);
+      showToast('Session created: ' + code);
+    } catch (e) {
+      setError('Error: ' + (e && e.message ? e.message : String(e)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay open">
+      <div className="modal" style={{ maxWidth: 560, maxHeight: 'min(92vh,900px)', overflowY: 'auto' }}>
+        <div className="modal-title">Create a new session</div>
+        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.1rem', lineHeight: 1.5 }}>
+          Same fields as <strong>Session settings</strong> in the sidebar. A session code is generated when you create the session.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          <div className="form-field">
+            <label>Session name</label>
+            <input className="mini-input" placeholder="e.g. Track A — Fundamentals" type="text" value={sessionName} onChange={e => setSessionName(e.target.value)} />
+          </div>
+          <div className="form-row form-row--session-dtz">
+            <div className="form-field">
+              <label>Date</label>
+              <input className="mini-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Time</label>
+              <input className="mini-input" type="time" value={time} onChange={e => setTime(e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Timezone (e.g. PT, ET)</label>
+              <select
+                ref={tzSelectRef}
+                className="mini-input"
+                aria-label="Session timezone"
+                value={timezone}
+                onChange={e => setTimezone(e.target.value)}
+              >
+                {SESSION_TIMEZONE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="form-field">
+            <label>Room / Location</label>
+            <input className="mini-input" placeholder="e.g. Hall D — Room 214" type="text" value={room} onChange={e => setRoom(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Description / Agenda <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-light)' }}>(optional)</span></label>
+            <textarea className="mini-input mini-textarea" placeholder="What will you cover?" value={desc} onChange={e => setDesc(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>OrgClaim link (<code>http://</code> or <code>https://</code>)</label>
+            <input className="mini-input" type="url" inputMode="url" placeholder="http://sfdc.co/OrgClaim" autoComplete="off" value={orgClaimUrl} onChange={e => setOrgClaimUrl(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>OrgClaim code (text students copy)</label>
+            <input className="mini-input" type="text" placeholder="Shown under OrgClaim on the student Session card." autoComplete="off" value={orgClaimCopy} onChange={e => setOrgClaimCopy(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Survey / feedback link (<code>https://</code>)</label>
+            <input className="mini-input" type="url" inputMode="url" placeholder="https://…" autoComplete="off" value={surveyUrl} onChange={e => setSurveyUrl(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Survey ID (text students copy)</label>
+            <input className="mini-input" type="text" placeholder="Shown under SURVEY on the student Session card." autoComplete="off" value={surveyCopy} onChange={e => setSurveyCopy(e.target.value)} />
+          </div>
+        </div>
+        {error && <p className="error-msg" style={{ fontSize: '0.82rem', color: 'var(--warn)', minHeight: '1.2rem', marginBottom: '0.5rem' }}>{error}</p>}
+        <div className="modal-footer">
+          <button className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
+          <button className="save-btn" style={{ padding: '0.55rem 1.25rem', marginTop: 0 }} onClick={handleCreate} disabled={loading}>
+            {loading ? 'Creating…' : 'Create session'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

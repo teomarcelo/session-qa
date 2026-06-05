@@ -23,6 +23,18 @@ service cloud.firestore {
         // Instructors delete from the dashboard; without Firebase Auth this cannot be restricted to “only instructors”.
         allow delete: if true;
       }
+      // Live chat — students and instructors read/create/update/delete.
+      // Without Firebase Auth we cannot restrict deletes to only the author or instructor;
+      // the client enforces author-only edit and instructor-only delete-any.
+      match /chat/{msgId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['authorName', 'authorId', 'text', 'createdAt', 'reactions', 'isInstructor'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000;
+        allow update: if true;
+        allow delete: if true;
+      }
       // Anonymous student dashboard feedback per session (path implies session; no email stored).
       match /sessionFeedback/{docId} {
         allow read: if true;

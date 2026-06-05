@@ -13,7 +13,7 @@ export function linkify(text) {
   );
 }
 
-/** Slack-style: *bold*, _italic_, ~strike~, `inline code`, fenced ``` blocks. Emojis OK. */
+/** Slack-style: *bold*, _italic_, ~strike~, `inline code`, fenced ``` blocks, [label](url) links. */
 export function formatRichMessage(raw) {
   let s = String(raw || '');
   const chunks = [];
@@ -44,6 +44,14 @@ export function formatRichMessage(raw) {
         '<button type="button" class="rich-copy-btn rich-copy-btn--inline" aria-label="Copy code" title="Copy code">' +
         copySvg +
         '</button></span>',
+    );
+    return PH + 'R' + i + PH2;
+  });
+  // Extract [label](url) links before esc so the href doesn't get double-escaped
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, label, url) => {
+    const i = chunks.length;
+    chunks.push(
+      `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline;word-break:break-all;">${esc(label)}</a>`
     );
     return PH + 'R' + i + PH2;
   });
