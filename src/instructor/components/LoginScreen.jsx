@@ -2,17 +2,12 @@ import { useState } from 'react';
 import { useInstructorAuth } from '../hooks/useInstructorAuth.js';
 
 export default function LoginScreen() {
-  const [mode, setMode] = useState('signin'); // 'signin' | 'register'
   const [signinName, setSigninName] = useState('');
   const [signinPin, setSigninPin] = useState('');
-  const [regName, setRegName] = useState('');
-  const [regPin, setRegPin] = useState('');
-  const [regPin2, setRegPin2] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [registerError, setRegisterError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login, register, enterDemo } = useInstructorAuth();
+  const { login, enterDemo } = useInstructorAuth();
 
   const handleLogin = async () => {
     setLoginError('');
@@ -22,22 +17,8 @@ export default function LoginScreen() {
     if (err) setLoginError(err);
   };
 
-  const handleRegister = async () => {
-    setRegisterError('');
-    setLoading(true);
-    const err = await register(regName, regPin, regPin2);
-    setLoading(false);
-    if (err) setRegisterError(err);
-  };
-
   const handleDemoMode = () => {
     enterDemo();
-  };
-
-  const switchMode = (m) => {
-    setMode(m);
-    setLoginError('');
-    setRegisterError('');
   };
 
   return (
@@ -48,109 +29,46 @@ export default function LoginScreen() {
           Instructor access
         </div>
 
-        {mode === 'signin' && (
-          <div id="mode-signin">
-            <h1 className="login-title">Welcome back</h1>
-            <p className="login-sub">Sign in with your instructor name and PIN.</p>
-            <div className="field">
-              <label>Your name</label>
-              <input
-                id="signin-name"
-                type="text"
-                placeholder="e.g. Alex Rivera"
-                autoComplete="username"
-                value={signinName}
-                onChange={e => setSigninName(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label>Your PIN</label>
-              <input
-                id="signin-pin"
-                type="password"
-                placeholder="Enter your PIN"
-                autoComplete="current-password"
-                value={signinPin}
-                onChange={e => setSigninPin(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
-              />
-            </div>
-            <button className="btn-primary" onClick={handleLogin} disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
-            {loginError && <p className="error-msg">{loginError}</p>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem' }}>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>or</span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-            </div>
-            <DemoButton onClick={handleDemoMode} />
-            <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              First time here?{' '}
-              <button
-                onClick={() => switchMode('register')}
-                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 }}
-              >
-                Create an account →
-              </button>
-            </p>
+        <div id="mode-signin">
+          <h1 className="login-title">Welcome back</h1>
+          <p className="login-sub">Sign in with your instructor name and PIN.</p>
+          <div className="field">
+            <label>Your name</label>
+            <input
+              id="signin-name"
+              type="text"
+              placeholder="e.g. Alex Rivera"
+              autoComplete="username"
+              value={signinName}
+              onChange={e => setSigninName(e.target.value)}
+            />
           </div>
-        )}
-
-        {mode === 'register' && (
-          <div id="mode-register">
-            <h1 className="login-title">Create your account</h1>
-            <p className="login-sub">Set up your instructor profile. You'll use this name and PIN every time you sign in.</p>
-            <div className="field">
-              <label>Your name</label>
-              <input
-                id="reg-name"
-                type="text"
-                placeholder="e.g. Alex Rivera"
-                autoComplete="username"
-                value={regName}
-                onChange={e => setRegName(e.target.value)}
-              />
-              <p className="hint">This is how you'll appear as the instructor on student boards.</p>
-            </div>
-            <div className="field">
-              <label>Create a PIN</label>
-              <input
-                id="reg-pin"
-                type="password"
-                placeholder="Choose a PIN (min 4 characters)"
-                autoComplete="new-password"
-                value={regPin}
-                onChange={e => setRegPin(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label>Confirm PIN</label>
-              <input
-                id="reg-pin2"
-                type="password"
-                placeholder="Repeat your PIN"
-                autoComplete="new-password"
-                value={regPin2}
-                onChange={e => setRegPin2(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleRegister(); }}
-              />
-            </div>
-            <button className="btn-primary" onClick={handleRegister} disabled={loading}>
-              {loading ? 'Creating…' : 'Create account'}
-            </button>
-            {registerError && <p className="error-msg">{registerError}</p>}
-            <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Already have an account?{' '}
-              <button
-                onClick={() => switchMode('signin')}
-                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontFamily: 'inherit', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 }}
-              >
-                Sign in →
-              </button>
-            </p>
+          <div className="field">
+            <label>Your PIN</label>
+            <input
+              id="signin-pin"
+              type="password"
+              placeholder="Enter your PIN"
+              autoComplete="current-password"
+              value={signinPin}
+              onChange={e => setSigninPin(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
+            />
           </div>
-        )}
+          <button className="btn-primary" onClick={handleLogin} disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+          {loginError && <p className="error-msg">{loginError}</p>}
+          <p style={{ textAlign: 'center', marginTop: '0.9rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            New instructor accounts are currently provisioned by an admin.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem' }}>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>or</span>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+          </div>
+          <DemoButton onClick={handleDemoMode} />
+        </div>
 
         <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)', fontSize: '0.82rem', color: 'var(--text-light)', textAlign: 'center' }}>
           🔒 Future upgrade: Restrict to <strong>@salesforce.com</strong> via Salesforce OAuth<br/>

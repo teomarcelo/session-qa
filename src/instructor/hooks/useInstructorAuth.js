@@ -165,28 +165,7 @@ export function useInstructorAuth() {
   }, [db]);
 
   const register = useCallback(async (name, pin, pin2) => {
-    if (!name) return 'Please enter your name.';
-    if (pin.length < 4) return 'PIN must be at least 4 characters.';
-    if (pin !== pin2) return 'PINs do not match.';
-    if (!db) return 'Firebase not configured. Use demo mode.';
-    const id = nameToId(name);
-    try {
-      const existing = await db.collection('instructors').doc(id).get();
-      if (existing.exists) return 'An account with that name already exists. Sign in instead.';
-      const hash = await hashPin(pin);
-      await db.collection('instructors').doc(id).set({
-        displayName: name,
-        pinHash: hash,
-        sessionsHiddenFromList: [],
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      useInstructorStore.getState().setCurrentInstructor(name);
-      writeInstructorNameToStorage(name);
-      setInstructorOnboardingWelcomeFlag();
-      return null; // success
-    } catch (e) {
-      return 'Error creating account. Please try again.';
-    }
+    return 'Instructor self-signup is temporarily disabled. Contact the workshop admin to provision your account.';
   }, [db]);
 
   const logout = useCallback(() => {
