@@ -19,7 +19,7 @@ import { getSessionNotesFromDoc } from '../../lib/sessionNotes.js';
 import { extractImageUrlForQuestionPaste } from '../../lib/clipboardImagePaste.js';
 import InstructorSidebar from './sidebar/InstructorSidebar.jsx';
 import QuestionsList from './QuestionsList.jsx';
-import StudentDemoPanel from './StudentDemoPanel.jsx';
+import StudentViewOverlay from './StudentViewOverlay.jsx';
 import JoinSessionModal from './JoinSessionModal.jsx';
 import CreateSessionModal from './CreateSessionModal.jsx';
 import DeleteModal from './DeleteModal.jsx';
@@ -470,7 +470,7 @@ function DashboardInner() {
       </div>
 
       {/* Overlays */}
-      <StudentDemoPanel />
+      <StudentViewOverlay />
       <JoinSessionModal />
       <CreateSessionModal />
       <DeleteModal />

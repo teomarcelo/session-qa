@@ -117,8 +117,8 @@ function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
 
           {/* Links */}
           <div className="form-field sn-links-field">
-            {(note.links || []).some(l => l.url) && (
-              <label className="sn-links-label">Named links (https only)</label>
+            {(note.links || []).length > 0 && (
+              <label className="sn-links-label">Named links (https only — shown as buttons on the student dashboard)</label>
             )}
             <div className="sn-links-rows">
               {(note.links || []).map((link, i) => (
@@ -134,7 +134,7 @@ function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
                   <input
                     className="mini-input sn-link-label"
                     type="text"
-                    placeholder="Display name (optional)"
+                    placeholder="Button label (optional)"
                     value={link.label || ''}
                     onChange={e => updateLink(i, 'label', e.target.value)}
                   />

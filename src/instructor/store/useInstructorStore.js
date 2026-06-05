@@ -33,7 +33,8 @@ export const DEMO_QUESTIONS_TEMPLATE = [
   { id:'dq3', pinned:false, status:'answered', authorName:'Anonymous', authorEmail:'',                     authorId:'u3', votes:2,  voters:[], answer:"Currently the limit is 50 topics per agent in the Spring '26 release.",
     text:'Is there a limit on how many topics a single agent can handle?' },
   { id:'dq4', pinned:false, status:'pending',  authorName:'Priya M.',  authorEmail:'priya@sf-partner.com', authorId:'u4', votes:3,  voters:[], answer:'',
-    text:'Do you need a specific Salesforce license to use Agentforce, or is it included with Enterprise?' },
+    imageUrls: ['https://placehold.co/560x180/1b1f23/ef4444?text=AgentError%3A+Topic+routing+failed%0ANo+matching+topic+found+for+intent%3A+%22check_order_status%22%0A(paste+a+screenshot+to+attach+it+to+your+question)'],
+    text:'Getting this error when my agent tries to route — anyone else seen this? (pasted screenshot above — image paste is supported!)' },
   { id:'dq5', pinned:false, status:'pending',  authorName:'Daniel R.', authorEmail:'',                     authorId:'u5', votes:1,  voters:[], answer:'',
     text:'Can we use custom LLMs with Agentforce or is it locked to the Einstein models?' },
 ];

@@ -124,7 +124,14 @@ export function useStudentSession() {
       return;
     }
 
-    let raw = safeLsGet(LS_LAST_SESSION) || safeLsGet(LS_LAST_SESSION_LEGACY);
+    // URL param ?code=SQA-XXXX takes priority over localStorage (used by instructor preview iframe)
+    let urlCode = null;
+    try {
+      const p = new URLSearchParams(window.location.search);
+      urlCode = p.get('code');
+    } catch (e) {}
+
+    let raw = urlCode || safeLsGet(LS_LAST_SESSION) || safeLsGet(LS_LAST_SESSION_LEGACY);
     // migrate legacy key
     if (raw && safeLsGet(LS_LAST_SESSION_LEGACY) && !safeLsGet(LS_LAST_SESSION)) {
       safeLsSet(LS_LAST_SESSION, String(raw).trim());

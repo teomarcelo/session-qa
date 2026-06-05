@@ -60,6 +60,17 @@ export function insertSlackFormat(textareaId, mode) {
     ta.dispatchEvent(new Event('input', { bubbles: true }));
     return;
   }
+  if (mode === 'link') {
+    const label = sel || 'link text';
+    ins = `[${label}](https://)`;
+    setNativeValue(ta, v.slice(0, start) + ins + v.slice(end));
+    ta.focus();
+    const urlStart = start + label.length + 3;
+    ta.setSelectionRange(urlStart, urlStart + 8);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+
   let before, after, mid;
   switch (mode) {
     case 'bold': before = '*'; after = '*'; mid = sel || 'bold'; break;
@@ -197,6 +208,9 @@ export default function FormatToolbar({ textareaId, compact = true }) {
         <button type="button" className="fmt-btn fmt-btn-s" data-fmt="strike" title="Strikethrough" aria-label="Strikethrough"><span style={{ textDecoration: 'line-through' }}>S</span></button>
         <button type="button" className="fmt-btn fmt-btn-mono" data-fmt="code" title="Inline code" aria-label="Inline code">`</button>
         <button type="button" className="fmt-btn fmt-btn-mono" data-fmt="fenced" title="Code block" aria-label="Code block">{'{ }'}</button>
+        <button type="button" className="fmt-btn fmt-btn-link" data-fmt="link" title="Link — [label](url). Select text first to use it as the label." aria-label="Insert link">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
         <span className="fmt-sep" aria-hidden="true"></span>
         <button type="button" className="fmt-btn fmt-emoji" data-emoji="👍" title="Thumbs up">👍</button>
         <button type="button" className="fmt-btn fmt-emoji" data-emoji="✅" title="Check">✅</button>

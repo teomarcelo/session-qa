@@ -26,6 +26,18 @@ export function insertSlackFormat(ta, mode) {
     return;
   }
 
+  if (mode === 'link') {
+    // Insert [label](url) — if text selected use it as label, place cursor on url part
+    const label = sel || 'link text';
+    ins = `[${label}](https://)`;
+    ta.value = v.slice(0, start) + ins + v.slice(end);
+    ta.focus();
+    // Select the url placeholder so the user can type over it
+    const urlStart = start + label.length + 3; // after "[label]("
+    ta.setSelectionRange(urlStart, urlStart + 8); // select "https://"
+    return;
+  }
+
   let before, after, mid;
   switch (mode) {
     case 'bold':   before = '*'; after = '*'; mid = sel || 'bold'; break;

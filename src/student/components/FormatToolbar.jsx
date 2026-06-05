@@ -266,6 +266,9 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
         <button type="button" className="fmt-btn fmt-btn-mono" title="Code block (triple backticks)" aria-label="Code block" onClick={() => onInsertFormat('fenced')}>
           {'{ }'}
         </button>
+        <button type="button" className="fmt-btn fmt-btn-link" title="Link — [label](url). Select text first to use it as the label." aria-label="Insert link" onClick={() => onInsertFormat('link')}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
         <span className="fmt-sep" aria-hidden="true" />
         <button type="button" className="fmt-btn fmt-emoji" title="Thumbs up" aria-label="Insert thumbs up" onClick={() => onInsertEmoji('👍')}>
           👍
