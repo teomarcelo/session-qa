@@ -16,6 +16,7 @@
  * safe: all user content rendered via esc() / formatRichMessage
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import firebase from '../../../lib/firebaseCompat.js';
 import { useFirebase } from '../../../shared/FirebaseContext.jsx';
 import useInstructorStore from '../../store/useInstructorStore.js';
@@ -23,8 +24,68 @@ import { formatRichMessage } from '../../../lib/richText.js';
 import { insertSlackFormat } from '../FormatToolbar.jsx';
 import { containsProfanity, looksLikeQuestion } from '../../../lib/chatModeration.js';
 
+/** Centered confirmation modal — replaces browser window.confirm */
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onCancel(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return createPortal(
+    <div className="chat-confirm-overlay" onPointerDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="chat-confirm-dialog" role="alertdialog" aria-modal="true">
+        <p className="chat-confirm-msg">{message}</p>
+        <div className="chat-confirm-actions">
+          <button className="chat-confirm-cancel" onClick={onCancel}>Cancel</button>
+          <button className="chat-confirm-ok" onClick={onConfirm} autoFocus>Delete</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+const REACTION_EMOJIS_LIST = ['👍', '❤️', '😂', '🔥', '👏', '💡', '🙌', '✅'];
+
+/** Fixed-position emoji reaction picker, portaled to body to escape overflow clipping */
+function ReactionPicker({ anchorRef, onPick, onClose }) {
+  const [style, setStyle] = useState({ opacity: 0 });
+
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    const pickerW = 192;
+    const pickerH = 44;
+    const gap = 4;
+    const vw = window.innerWidth;
+    let top = r.top - pickerH - gap;
+    if (top < 8) top = r.bottom + gap;
+    let left = r.left;
+    if (left + pickerW > vw - 8) left = vw - pickerW - 8;
+    if (left < 8) left = 8;
+    setStyle({ position: 'fixed', top, left, zIndex: 9999, opacity: 1 });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    function handler(e) {
+      if (!e.target.closest('.chat-reaction-picker-portal')) onClose();
+    }
+    document.addEventListener('pointerdown', handler, true);
+    return () => document.removeEventListener('pointerdown', handler, true);
+  }, [onClose]);
+
+  return createPortal(
+    <div className="chat-reaction-picker chat-reaction-picker-portal" style={style}>
+      {REACTION_EMOJIS_LIST.map(em => (
+        <button key={em} className="chat-reaction-option" onPointerDown={e => { e.preventDefault(); onPick(em); }}>{em}</button>
+      ))}
+    </div>,
+    document.body
+  );
+}
+
 const CHAT_PAGE_SIZE = 60;
-const REACTION_EMOJIS = ['👍', '❤️', '😂', '🔥', '👏', '💡', '🙌', '✅'];
 const INSTR_AUTHOR_ID = 'instructor';
 
 function formatTime(ts) {
@@ -58,10 +119,12 @@ export default function SessionChat() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [reactionPickerId, setReactionPickerId] = useState(null);
+  const [reactionAnchorRef, setReactionAnchorRef] = useState(null);
   const [escalateMsg, setEscalateMsg] = useState(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(!isDemoMode);
   const [sendError, setSendError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   // Edit state
   const [editingId, setEditingId] = useState(null);
@@ -200,27 +263,28 @@ export default function SessionChat() {
   const editHasProfanity = editingId ? containsProfanity(editText) : false;
 
   // ── Delete (instructors can delete any message) ────────────────────────────────
-  const handleDelete = useCallback(async (msgId) => {
-    if (!window.confirm('Delete this message?')) return;
+  const confirmAndDelete = useCallback((msgId) => setConfirmDelete(msgId), []);
 
-    if (isDemoMode) {
-      setMessages(prev => prev.filter(m => m.id !== msgId));
-      return;
-    }
-
+  const doDelete = useCallback(async () => {
+    const msgId = confirmDelete;
+    setConfirmDelete(null);
+    if (isDemoMode) { setMessages(prev => prev.filter(m => m.id !== msgId)); return; }
     if (!db || !activeSessionCode) return;
     try {
-      await db
-        .collection('sessions').doc(activeSessionCode)
-        .collection('chat').doc(msgId).delete();
-    } catch (e) {
-      showToast('Could not delete message.');
-    }
-  }, [isDemoMode, db, activeSessionCode, showToast]);
+      await db.collection('sessions').doc(activeSessionCode).collection('chat').doc(msgId).delete();
+    } catch (e) { showToast('Could not delete message.'); }
+  }, [confirmDelete, isDemoMode, db, activeSessionCode, showToast]);
 
   // ── React ──────────────────────────────────────────────────────────────────────
+  const openReactionPicker = useCallback((msgId, btnEl) => {
+    if (reactionPickerId === msgId) { setReactionPickerId(null); setReactionAnchorRef(null); return; }
+    setReactionPickerId(msgId);
+    setReactionAnchorRef({ current: btnEl });
+  }, [reactionPickerId]);
+
   const handleReact = useCallback(async (msgId, emoji) => {
     setReactionPickerId(null);
+    setReactionAnchorRef(null);
     const myId = isDemoMode ? 'instr-demo' : INSTR_AUTHOR_ID;
 
     if (isDemoMode) {
@@ -239,14 +303,10 @@ export default function SessionChat() {
     try {
       const snap = await msgRef.get();
       if (!snap.exists) return;
-      const data = snap.data();
-      const voters = (data.reactions?.[emoji]) || [];
+      const voters = (snap.data().reactions?.[emoji]) || [];
       const already = voters.includes(myId);
-      const next = already ? voters.filter(v => v !== myId) : [...voters, myId];
-      await msgRef.update({ [`reactions.${emoji}`]: next });
-    } catch (e) {
-      showToast('Could not add reaction.');
-    }
+      await msgRef.update({ [`reactions.${emoji}`]: already ? voters.filter(v => v !== myId) : [...voters, myId] });
+    } catch (e) { showToast('Could not add reaction.'); }
   }, [isDemoMode, db, activeSessionCode, showToast]);
 
   // ── Escalate to Q&A ────────────────────────────────────────────────────────────
@@ -315,23 +375,14 @@ export default function SessionChat() {
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); handleSend(); }
   }
 
   function handleEditKeyDown(e) {
+    e.stopPropagation();
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
     if (e.key === 'Escape') cancelEdit();
   }
-
-  // Close reaction picker on outside click
-  useEffect(() => {
-    if (!reactionPickerId) return;
-    function handler(e) {
-      if (!e.target.closest('.chat-reaction-picker')) setReactionPickerId(null);
-    }
-    document.addEventListener('pointerdown', handler, true);
-    return () => document.removeEventListener('pointerdown', handler, true);
-  }, [reactionPickerId]);
 
   if (!activeSessionCode) {
     return <p className="instr-feedback-lead">Select a session to use chat.</p>;
@@ -339,6 +390,24 @@ export default function SessionChat() {
 
   return (
     <div className="session-chat">
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <ConfirmModal
+          message="Delete this message? This cannot be undone."
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {/* Reaction picker portaled to body */}
+      {reactionPickerId && reactionAnchorRef && (
+        <ReactionPicker
+          anchorRef={reactionAnchorRef}
+          onPick={em => handleReact(reactionPickerId, em)}
+          onClose={() => { setReactionPickerId(null); setReactionAnchorRef(null); }}
+        />
+      )}
+
       {/* Search */}
       <div className="chat-search-row">
         <input
@@ -386,7 +455,7 @@ export default function SessionChat() {
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                       )}
-                      <button className="chat-action-btn chat-action-btn--delete" title="Delete message" onClick={() => handleDelete(msg.id)}>
+                      <button className="chat-action-btn chat-action-btn--delete" title="Delete message" onClick={() => confirmAndDelete(msg.id)}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                       </button>
                     </span>
@@ -403,7 +472,7 @@ export default function SessionChat() {
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                       )}
-                      <button className="chat-action-btn chat-action-btn--delete" title="Delete message" onClick={() => handleDelete(msg.id)}>
+                      <button className="chat-action-btn chat-action-btn--delete" title="Delete message" onClick={() => confirmAndDelete(msg.id)}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                       </button>
                     </span>
@@ -457,22 +526,18 @@ export default function SessionChat() {
                       </button>
                     );
                   })}
-                  <div className="chat-reaction-trigger-wrap" style={{ position: 'relative', display: 'inline-block' }}>
-                    <button
-                      className="chat-reaction-add"
-                      title="React"
-                      onClick={() => setReactionPickerId(p => p === msg.id ? null : msg.id)}
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                    </button>
-                    {reactionPickerId === msg.id && (
-                      <div className="chat-reaction-picker">
-                        {REACTION_EMOJIS.map(em => (
-                          <button key={em} className="chat-reaction-option" onClick={() => handleReact(msg.id, em)}>{em}</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    className="chat-reaction-add"
+                    title="React"
+                    ref={el => {
+                      if (reactionPickerId === msg.id && el && reactionAnchorRef?.current !== el) {
+                        setReactionAnchorRef({ current: el });
+                      }
+                    }}
+                    onClick={e => openReactionPicker(msg.id, e.currentTarget)}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                  </button>
                   {showEscalate && !msg.isInstructor && (
                     <button className="chat-escalate-btn" title="Add to Q&A board" onClick={() => setEscalateMsg(msg)}>
                       ↑ Move to Q&A
