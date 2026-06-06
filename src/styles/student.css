@@ -1864,6 +1864,74 @@
   }
   .chat-question-no:hover { border-color: var(--text-muted); }
 
+  /* Delete confirmation modal */
+  .chat-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 1rem;
+  }
+  .chat-confirm-dialog {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 1.75rem;
+    max-width: 340px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .chat-confirm-msg {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.5;
+    margin: 0;
+    text-align: center;
+  }
+  .chat-confirm-actions {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+  }
+  .chat-confirm-cancel {
+    flex: 1;
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
+    font-family: inherit;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .chat-confirm-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+  .chat-confirm-ok {
+    flex: 1;
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
+    font-family: inherit;
+    font-weight: 600;
+    background: #dc2626;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .chat-confirm-ok:hover { background: #b91c1c; }
+
+  /* Reaction picker portal (portaled to body, fixed position) */
+  .chat-reaction-picker-portal {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  }
+
   /* Profanity / send feedback */
   .chat-send-feedback {
     font-size: 0.78rem;
