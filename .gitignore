@@ -6,3 +6,7 @@ BRAINSTORM*.md
 
 node_modules/
 dist/
+
+# Nested Next.js app (has its own repo/secrets) and agent worktrees
+next-app/
+.claude/worktrees/

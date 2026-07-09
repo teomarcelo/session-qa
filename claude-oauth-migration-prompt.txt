@@ -1,0 +1,88 @@
+I am migrating an existing static employee tool guide site from GitHub Pages to Vercel so I can add secure server side authentication.
+
+Direction:
+- Platform: Vercel
+- Stack: Next.js
+- GitHub stays source of truth
+- Minimal risk migration first
+- Do not redesign existing UI unless required for auth flow
+
+Current state:
+- Static HTML/CSS/JS on GitHub Pages
+- No server side runtime today
+
+Auth requirements:
+- Employees log in with Google accounts through Salesforce auth provider flow (Authorization Code flow)
+- OAuth callback handled server side only
+- Restrict access to @salesforce.com users only
+- Validate hd claim and verified email domain
+- Protect app routes so unauthenticated users are redirected to /login
+- Include secure logout and session expiration behavior
+
+Use env vars:
+- GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_SECRET
+- SESSION_SECRET
+- ALLOWED_DOMAIN
+- Plus any Salesforce vars needed (list them)
+
+Please provide a full implementation ready guide with:
+
+1) Architecture
+- End to end flow: login -> callback -> session -> protected routes
+- Why this design is best for Vercel + Next.js
+
+2) Project structure
+- Target folder/file tree
+- Where static assets and protected pages go
+
+3) Exact config and code (no pseudocode)
+- package.json scripts
+- next config if needed
+- auth routes: login, callback, logout
+- session setup and secure cookie flags
+- middleware for protected routes
+- env var validation utility
+- error handling
+
+4) OAuth setup steps
+- Salesforce + Google setup
+- Local and prod callback URLs
+- Required scopes
+- Token validation checks (issuer, audience, nonce/state, expiry)
+
+5) Local dev steps
+- Commands
+- .env.local template
+- Test success and blocked non-salesforce login
+
+6) Vercel deploy steps
+- Connect GitHub repo
+- Set env vars
+- Deploy and verify
+- Preview env notes
+
+7) Security hardening checklist
+- CSRF/state handling
+- nonce/replay protections
+- cookie settings: HttpOnly, Secure, SameSite
+- session rotation and timeout
+- no secret/token leakage in logs
+
+8) Testing and troubleshooting
+- Smoke test checklist
+- Common OAuth errors and fixes:
+  - redirect URI mismatch
+  - invalid state
+  - domain/hd mismatch
+  - session cookie not persisting on Vercel
+
+9) Rollout plan
+- staged rollout steps
+- rollback plan if auth breaks production access
+
+Please clearly label:
+- files to create
+- files to modify
+- exact code for each file
+- assumptions you are making
