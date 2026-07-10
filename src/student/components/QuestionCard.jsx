@@ -1,6 +1,7 @@
 import { esc, formatRichMessage, isHttpsUrl } from '../../lib/richText.js';
 import { formatQuestionWhen } from '../../lib/formatQuestionWhen.js';
 import { htmlAnsweredStatusBadges } from '../../lib/answeredBadge.js';
+import { currentUid } from '../../lib/auth.js';
 
 /**
  * normalizeQuestionImageUrls — extract https-only image URLs from the imageUrls field,
@@ -35,7 +36,11 @@ function isImageOnlyPlaceholderText(text) {
  */
 export default function QuestionCard({ question: q, userId, sessionCode, isLocked, onUpvote, onEdit }) {
   const mine = isMyQuestion(q.id, sessionCode);
-  const voted = (q.voters || []).includes(userId);
+  // A vote counts as "mine" whether it was recorded under the Firebase uid
+  // (current model) or the legacy localStorage id (older votes).
+  const authUid = currentUid();
+  const voters = q.voters || [];
+  const voted = voters.includes(userId) || (!!authUid && voters.includes(authUid));
   const voting = isLocked;
 
   const imageUrls = normalizeQuestionImageUrls(q);

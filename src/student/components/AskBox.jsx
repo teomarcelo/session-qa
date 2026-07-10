@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import firebase from '../../lib/firebaseCompat.js';
+import { ensureAnonymousStudent, currentUid } from '../../lib/auth.js';
 import FormatToolbar from './FormatToolbar.jsx';
 import { insertSlackFormat, insertEmoji } from '../utils/formatHelpers.js';
 import { extractImageUrlForQuestionPaste } from '../../lib/clipboardImagePaste.js';
@@ -250,22 +251,30 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
       ? userName
       : 'Anonymous';
 
-    const payload = {
-      text: textOut,
-      authorName: displayName || 'Anonymous',
-      authorEmail: '',
-      authorId: userId,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      status: 'pending',
-      pinned: false,
-      votes: 0,
-      voters: [],
-      answer: '',
-    };
-    if (imageUrls.length) payload.imageUrls = imageUrls;
-
     setSubmitting(true);
     try {
+      // Ensure a silent anonymous identity so the write carries a Firebase uid
+      // the rules can bind to. Falls back gracefully if auth is unavailable.
+      await ensureAnonymousStudent();
+      const authUid = currentUid();
+
+      const payload = {
+        text: textOut,
+        authorName: displayName || 'Anonymous',
+        authorEmail: '',
+        // authorId (localStorage id) is kept for continuity with existing docs;
+        // authorUid is the new Firebase-auth-backed owner used by strict rules.
+        authorId: userId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'pending',
+        pinned: false,
+        votes: 0,
+        voters: [],
+        answer: '',
+      };
+      if (authUid) payload.authorUid = authUid;
+      if (imageUrls.length) payload.imageUrls = imageUrls;
+
       const docRef = await db
         .collection('sessions')
         .doc(sessionCode)

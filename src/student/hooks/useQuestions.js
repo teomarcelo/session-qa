@@ -1,16 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
-import { QUESTIONS_PAGE_SIZE, STUDENT_POLL_MS } from '../../constants/app.js';
+import { QUESTIONS_PAGE_SIZE } from '../../constants/app.js';
 
 /**
  * Manages paginated question fetching for the student board.
  *
- * - Polls page 0 every STUDENT_POLL_MS (10s).
- * - Pagination uses a pages array: each page has { questions, endSnap }.
- * - Cached pages are served without a re-fetch when navigating back.
- * - Poll is skipped when pollSkipUntilRef.current > Date.now() (set by upvote).
+ * Page 0 is driven by a LIVE onSnapshot listener (instant updates; Firestore
+ * charges mainly for changed docs, not a full re-read every interval). Older
+ * pages (1..n) are still fetched on demand with cursor `.get()` calls.
+ *
+ * Cache/pagination behavior is preserved:
+ *  - Pagination uses a pages array: each page has { questions, endSnap }.
+ *  - Older cached pages are served without a re-fetch when navigating back.
+ *  - Whenever page 0 refreshes while it is the visible page, older cached pages
+ *    are dropped (their cursors may be stale) — matching the prior poll logic.
+ *
+ * Demo mode (no `db`) is unaffected: no listener is attached and the board is
+ * populated by the store, exactly as before.
+ *
+ * `pollSkipUntilRef` is retained for signature/coordination with useUpvote but
+ * is no longer used to gate a polling interval (there is none).
  */
-export function useQuestions(sessionCode, pollSkipUntilRef) {
+export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-line no-unused-vars
   const { db } = useFirebase();
 
   const [questionPages, setQuestionPages] = useState([]);
@@ -19,20 +30,31 @@ export function useQuestions(sessionCode, pollSkipUntilRef) {
   const [loading, setLoading] = useState(false);
 
   const loadingRef = useRef(false);
-  const pollTimerRef = useRef(null);
-  // Keep a ref to currentPage so callbacks can read the latest value without
-  // being in their deps array (avoids stale closures in pagination callbacks).
+  const unsubRef = useRef(null);
+  // Latest page-0 snapshot, kept so returning to page 0 shows fresh live data.
+  const latestPage0Ref = useRef(null);
+  // Keep refs to currentPage/questionPages so callbacks read the latest values
+  // without being in their deps (avoids stale closures in pagination callbacks).
   const currentPageRef = useRef(0);
   const questionPagesRef = useRef([]);
 
-  // Keep refs in sync with state
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
   useEffect(() => { questionPagesRef.current = questionPages; }, [questionPages]);
 
-  // Convenience: questions on the current page
   const allQuestions = questionPages[currentPage]?.questions ?? [];
 
-  /** Fetch (or refresh) page 0. Safe to call repeatedly; skips if already loading. */
+  /** Commit a fresh page-0 result, dropping stale older pages (cursor safety). */
+  const commitPage0 = useCallback((questions, endSnap) => {
+    setQuestionPages((prev) => {
+      const next = prev.slice();
+      next[0] = { questions, endSnap };
+      return next.slice(0, 1);
+    });
+    setCurrentPage(0);
+    setOlderExhausted(questions.length < QUESTIONS_PAGE_SIZE);
+  }, []);
+
+  /** One-shot refresh of page 0 (Refresh button / after submit). */
   const fetchFirstPage = useCallback(async () => {
     if (!db || !sessionCode) return;
     if (loadingRef.current) return;
@@ -49,22 +71,15 @@ export function useQuestions(sessionCode, pollSkipUntilRef) {
 
       const questions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const endSnap = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
-
-      setQuestionPages((prev) => {
-        const next = prev.slice();
-        next[0] = { questions, endSnap };
-        // Refreshing page 0 invalidates cached older pages to avoid stale cursors.
-        return next.slice(0, 1);
-      });
-      setCurrentPage(0);
-      setOlderExhausted(snap.docs.length < QUESTIONS_PAGE_SIZE);
+      latestPage0Ref.current = { questions, endSnap };
+      commitPage0(questions, endSnap);
     } catch (e) {
       console.warn('useQuestions fetchFirstPage error:', e);
     } finally {
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [db, sessionCode]);
+  }, [db, sessionCode, commitPage0]);
 
   /** Load or navigate to the next (older) page. */
   const goNextPage = useCallback(async () => {
@@ -117,21 +132,31 @@ export function useQuestions(sessionCode, pollSkipUntilRef) {
     }
   }, [db, sessionCode]);
 
-  /** Navigate to previous (newer) page — always cached. */
+  /** Navigate to previous (newer) page — cached; refresh page 0 from the listener. */
   const goPrevPage = useCallback(() => {
     const cp = currentPageRef.current;
     if (cp <= 0) return;
-    setCurrentPage(cp - 1);
-  }, []);
+    const target = cp - 1;
+    // Returning to page 0: show the freshest live snapshot and drop stale older pages.
+    if (target === 0 && latestPage0Ref.current) {
+      commitPage0(latestPage0Ref.current.questions, latestPage0Ref.current.endSnap);
+      return;
+    }
+    setCurrentPage(target);
+  }, [commitPage0]);
 
   /** Jump directly to a cached page by zero-based index. */
   const goToPage = useCallback((idx) => {
+    if (idx === 0 && latestPage0Ref.current) {
+      commitPage0(latestPage0Ref.current.questions, latestPage0Ref.current.endSnap);
+      return;
+    }
     const pages = questionPagesRef.current;
     if (idx < 0 || idx >= pages.length || !pages[idx]) return;
     setCurrentPage(idx);
-  }, []);
+  }, [commitPage0]);
 
-  // --- Reset when session changes: reset state and start polling ---
+  // --- Reset + live listener when the session (or db) changes ---
   useEffect(() => {
     if (!sessionCode) return;
 
@@ -139,32 +164,55 @@ export function useQuestions(sessionCode, pollSkipUntilRef) {
     setQuestionPages([]);
     setCurrentPage(0);
     setOlderExhausted(false);
-    setLoading(false);
     loadingRef.current = false;
     currentPageRef.current = 0;
     questionPagesRef.current = [];
+    latestPage0Ref.current = null;
 
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
+    // Tear down any prior listener
+    if (typeof unsubRef.current === 'function') {
+      try { unsubRef.current(); } catch (e) {}
+      unsubRef.current = null;
     }
 
-    fetchFirstPage();
+    if (!db) return; // demo / no config: store drives the board
 
-    pollTimerRef.current = setInterval(() => {
-      if (pollSkipUntilRef && Date.now() < pollSkipUntilRef.current) return;
-      // Only auto-poll when on page 0
-      if (currentPageRef.current !== 0) return;
-      fetchFirstPage();
-    }, STUDENT_POLL_MS);
+    setLoading(true);
+    // Live listener on the newest page. The initial snapshot fires immediately
+    // with current docs, so no separate initial fetch is needed.
+    const unsub = db
+      .collection('sessions')
+      .doc(sessionCode)
+      .collection('questions')
+      .orderBy('createdAt', 'desc')
+      .limit(QUESTIONS_PAGE_SIZE)
+      .onSnapshot(
+        (snap) => {
+          const questions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const endSnap = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+          latestPage0Ref.current = { questions, endSnap };
+          // Only mutate the visible feed when the user is on page 0, so live
+          // updates never disrupt someone reading an older page.
+          if (currentPageRef.current === 0) {
+            commitPage0(questions, endSnap);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          // Listener failure should not break the feed; leave any cached data in place.
+          console.warn('useQuestions onSnapshot error:', err);
+          setLoading(false);
+        },
+      );
+    unsubRef.current = unsub;
 
     return () => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
+      if (typeof unsubRef.current === 'function') {
+        try { unsubRef.current(); } catch (e) {}
+        unsubRef.current = null;
       }
     };
-    // fetchFirstPage is stable per (db, sessionCode); pollSkipUntilRef is a ref (stable identity)
+    // commitPage0 is stable; fetchFirstPage not needed here (listener populates).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionCode, db]);
 

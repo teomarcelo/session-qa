@@ -84,12 +84,18 @@ export default function CreateSessionModal() {
       || (currentInstructor
         ? currentInstructor.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
         : '');
+    // Raw lowercased verified email so Firestore rules can match request.auth.token.email
+    // directly (rules cannot reproduce emailToId). Empty when no verified email (rare/local).
+    const ownerEmail = (state.instructorEmail || '').trim().toLowerCase();
 
     setLoading(true);
     const sessionPayload = {
       sessionName: sessionName.trim(),
       instructorNames: currentInstructor || '',
       instructors: currentInstructor ? [currentInstructor] : [],
+      // Email-based ownership for the rewritten rules (owner + co-instructors).
+      ownerEmail,
+      instructorEmails: ownerEmail ? [ownerEmail] : [],
       sessionDate: date ? sessionDateInputToDisplay(date) : '',
       sessionTime: time ? formatDisplayTime(time) : '',
       sessionTimezone: timezone || DEFAULT_SESSION_TIMEZONE,

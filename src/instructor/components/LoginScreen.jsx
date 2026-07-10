@@ -1,33 +1,49 @@
 import { useState } from 'react';
-import { useInstructorAuth } from '../hooks/useInstructorAuth.js';
+import {
+  useInstructorAuth,
+  emailToId,
+  writeDisplayNameOverride,
+  writeInstructorNameToStorage,
+} from '../hooks/useInstructorAuth.js';
 
-/** Read the Google identity passed by the Next.js gateway via the iframe URL. */
-function readSsoIdentity() {
-  try {
-    const p = new URLSearchParams(window.location.search);
-    return {
-      name: (p.get('sso_name') || '').trim(),
-      email: (p.get('sso_email') || '').trim(),
-    };
-  } catch (e) {
-    return { name: '', email: '' };
-  }
-}
+import { signInInstructorWithGoogle } from '../../lib/auth.js';
 
+/**
+ * Instructor login.
+ *
+ * Primary path: "Continue with Google" (Firebase Auth, salesforce.com hint).
+ * The verified email becomes the stable ownership key; the display-name field
+ * lets you set the name students see. Demo mode stays available offline.
+ *
+ * The old, spoofable ?sso_name / ?sso_email URL params are NO LONGER trusted.
+ */
 export default function LoginScreen() {
-  const [sso] = useState(readSsoIdentity);
-  const [name, setName] = useState(sso.name);
+  const [name, setName] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const { continueAs, enterDemo } = useInstructorAuth();
+  const { enterDemo } = useInstructorAuth();
 
-  const handleContinue = async () => {
+  // Google sign-in. onAuthStateChanged (in InstructorApp) sets the real identity;
+  // here we just persist the optional display-name override the instructor typed.
+  const handleGoogle = async () => {
     setLoginError('');
-    setLoading(true);
-    const err = await continueAs(name, sso.email);
-    setLoading(false);
-    if (err) setLoginError(err);
+    setGoogleLoading(true);
+    try {
+      const user = await signInInstructorWithGoogle();
+      const typed = name.trim();
+      if (user && user.email && typed) {
+        // Persist the chosen display name keyed to the verified email so the
+        // auth listener picks it up instead of the raw Google name.
+        writeDisplayNameOverride(emailToId(String(user.email).toLowerCase()), typed);
+        writeInstructorNameToStorage(typed);
+      }
+      // Success: the auth listener swaps LoginScreen → Dashboard.
+    } catch (err) {
+      setLoginError(err && err.message ? err.message : 'Google sign-in failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleDemoMode = () => {
@@ -43,18 +59,14 @@ export default function LoginScreen() {
         </div>
 
         <div id="mode-signin">
-          <h1 className="login-title">You're signed in</h1>
-          {sso.email ? (
-            <p className="login-sub">
-              Verified with Google as <strong>{sso.email}</strong>. Confirm the name
-              students will see, then continue.
-            </p>
-          ) : (
-            <p className="login-sub">Enter the name you want to go by, then continue.</p>
-          )}
+          <h1 className="login-title">Instructor sign-in</h1>
+          <p className="login-sub">
+            Sign in with your Salesforce Google account. Optionally set the name
+            students will see, then continue.
+          </p>
 
           <div className="field">
-            <label>Name students see</label>
+            <label>Name students see <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-light)' }}>(optional)</span></label>
             <input
               id="signin-name"
               type="text"
@@ -62,27 +74,34 @@ export default function LoginScreen() {
               autoComplete="name"
               value={name}
               onChange={e => setName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleContinue(); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleGoogle(); }}
             />
             <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', margin: '0.4rem 0 0' }}>
-              This is how you appear to students and how your sessions are grouped. You can change it.
+              This is how you appear to students and how your sessions are grouped. You can change it later.
             </p>
           </div>
 
-          <button className="btn-primary" onClick={handleContinue} disabled={loading}>
-            {loading ? 'Continuing…' : 'Continue'}
+          <button className="btn-primary" onClick={handleGoogle} disabled={googleLoading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
+            <GoogleGlyph />
+            {googleLoading ? 'Opening Google…' : 'Continue with Google'}
           </button>
           {loginError && <p className="error-msg">{loginError}</p>}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem' }}>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>or</span>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-          </div>
           <DemoButton onClick={handleDemoMode} />
         </div>
       </div>
     </div>
+  );
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
   );
 }
 
