@@ -5,6 +5,24 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/instructor",
+        "destination": "/instructor.html"
+      },
+      {
+        "source": "/student",
+        "destination": "/student.html"
+      }
+    ]
+  },
   "emulators": {
     "firestore": {
       "port": 8080
