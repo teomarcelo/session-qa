@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { buildEmojiIndex, filterEmojiChars } from '../../lib/emojiData.js';
 
 /** Large Unicode emoji set (~750 emojis). System font renders each glyph. */
 const FORMAT_EMOJI_PICKER_RAW =
   "😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠💩🤡👹👺👻👽👾🤖😺😸😹😻😼😽🙀😿😾👋🤚🖐✋🖖👌🤌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🫀🫁🦷🦴👀👁👅👄❤🧡💛💚💙💜🖤🤍🤎💔❣💕💞💓💗💖💘💝💟☮✝☪🕉☸✡🔯🪄🪅🎴🎭🖼🎨🔮🧿🐵🐒🦍🦧🐶🐕🦮🐩🐺🦊🦝🐱🐈🦁🐯🐅🐆🐴🐎🦄🦓🦌🦬🐮🐂🐃🐄🐷🐖🐗🐽🐏🐑🐐🐪🐫🦙🦒🐘🦣🦏🦛🐭🐁🐀🐹🐰🐇🐿🦫🦔🦇🐻🐨🐼🐾🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦤🪶🦩🦚🦜🐸🐊🐢🦎🐍🐲🐉🦕🦖🐳🐋🐬🦭🐟🐠🐡🦈🐙🐚🪸🐌🦋🐛🐜🐝🪲🐞🦗🪳🕷🕸🦂🦟🪰🪱🦠💐🌸💮🌹🥀🌺🌻🌼🌷🪻🌱🪴🌲🌳🌴🌵🌾🌿☘🍀🍁🍂🍃🪹🪺🍄🍇🍈🍉🍊🍋🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🥥🥑🍆🥔🥕🌽🌶🫑🥒🥬🥦🧄🧅🥜🫘🌰🍞🥐🥖🫓🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🫔🥙🧆🥚🍳🥘🍲🫕🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🦪🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🥤🧋🧃🧉🧊🥢🍽🍴🥄🔪🫙🌍🌎🌏🌐🗺🧭🏔⛰🌋🗻🏕🏖🏜🏝🏞🏟🏛🏗🧱🪨🪵🛖🏘🏚🏠🏡🏢🏣🏤🏥🏦🏨🏩🏪🏫🏬🏭🏯🏰💒🗼🗽⛪🕌🛕🕍⛩🕋⛲⛺🌁🌃🌄🌅🌆🌇🌉♨🎠🛝🎡🎢💈🎪🚂🚃🚄🚅🚆🚇🚈🚉🚊🚝🚞🚋🚌🚍🚎🚐🚑🚒🚓🚔🚕🚖🚗🚘🚙🛻🚚🚛🚜🏎🏍🛵🦽🦼🛺🚲🛴🛹🛼🚏🛣🛤⛽🚨🚥🚦🛑🚧⚓🛟⛵🛶🚤🛳⛴🛥🚢✈🛩🛫🛬🪂💺🚁🚟🚠🚡🛰🚀🛸🪐🌠🌌⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🪀🏓🏸🏒🏑🥍🏏🪃🥅⛳🪁🏹🎣🤿🥊🥋🎽🛷⛸🥌🎿⛷🏂🏋🤼🤸🤺⛹🤹🧘🏌🏇🧗🚵🚴🏆🥇🥈🥉🏅🎖🏵🎗🎫🎟🩰🎬🎤🎧🎼🎹🥁🪘🎷🎺🎸🪕🎻🪈🎲♟🎯🎳🎮🕹🎰🧩📱📲☎📞📟📠🔋🪫🔌💻🖥🖨⌨🖱🖲💽💾💿📀🧮🎥🎞📽📺📷📸📹📼🔍🔎🕯💡🔦🏮🪔📔📕📖📗📘📙📚📓📒📃📜📄📰🗞📑🔖🏷💰🪙💴💵💶💷💸💳🧾✉📧📨📩📤📥📦📫📪📬📭📮🗳✏✒🖋🖊🖌🖍📝💼📁📂🗂📅📆🗒🗓📇📈📉📊📋📌📍📎🖇📏📐✂🗃🗄🗑🔒🔓🔏🔐🔑🗝🔨🪓⛏⚒🛠🗡⚔🔫🛡🔧🪛🔩⚙🗜⚖🦯🔗⛓🪝🧰🧲🪜💯💢💥💫💦💨🕳💬🗨🗯💭💤🔔🔕📣📢📿🏧🚮🚰♿🚹🚺🚻🚼🚾🛂🛃🛄🛅⚠🚸⛔🚫🚳🚭🚯🚱🚷📵🔞☢☣⬆↗➡↘⬇↙⬅↖↕↔↩↪⤴⤵🔃🔄🔙🔚🔛🔜🔝🛐⚛☯🕎♈♉♊♋♌♍♎♏♐♑♒♓⛎🔀🔁🔂▶⏩⏭⏯◀⏪⏮🔼⏫🔽⏬⏸⏹⏺⏏🎦🔅🔆📶📳📴♀♂⚧✖➕➖➗🟰♾‼⁉❓❔❕❗〰💱💲⚕♻❇✳❎🆎🆑🆘📛🔠🔡🔢🔣🔤⌚⏰⏱⏲🕰🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕡🕖🕢🕗🕣🕘🕤🕙🕥🕚🕦🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝🌞⭐🌟☀🌤⛅🌥☁🌦🌧⛈🌩🌨❄☃⛄🌬🌪🌫🌈☂☔⛱⚡🔥💧🌊🎃🎄🎆🎇🧨✨🎈🎉🎊🎋🎍🎎🎏🎐🎑🧧🎀🎁🧸🪆🃏🀄";
 const EMOJI_CHARS = Array.from(FORMAT_EMOJI_PICKER_RAW);
+const EMOJI_INDEX = buildEmojiIndex(EMOJI_CHARS);
 
 /** Inline font so embedded hosts cannot strip emojis with button { font-family } !important. */
 const EMOJI_CELL_STYLE =
@@ -24,16 +26,20 @@ const EMOJI_PANEL_PREFERRED_PX = 380;
  * because the layout math depends on live viewport geometry that React's render
  * cycle doesn't expose.
  */
-export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onInsertEmoji }) {
+export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onInsertEmoji, onClear }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const summaryRef = useRef(null);
   const shellRef = useRef(null);
   const gridRef = useRef(null);
+  const searchRef = useRef(null);
   const ioRef = useRef(null);
   const roRef = useRef(null);
   const [pickerStyle, setPickerStyle] = useState({});
   const [flipAbove, setFlipAbove] = useState(false);
   const [gridScrollState, setGridScrollState] = useState({ hasOverflow: false, atStart: true, atEnd: false });
+
+  const filteredEmojis = filterEmojiChars(EMOJI_CHARS, query, EMOJI_INDEX);
 
   // --- Position the picker panel ---
   function positionPicker() {
@@ -92,6 +98,15 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
     setGridScrollState({ hasOverflow, atStart, atEnd });
   }
 
+  // Position the panel synchronously before the browser paints. Without this,
+  // the portal first commits with the CSS default (position: absolute, no
+  // coordinates) which lands it at the bottom of <body>; focusing the search
+  // field there makes the browser auto-scroll the page and hide the ask box.
+  useLayoutEffect(() => {
+    if (pickerOpen) positionPicker();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerOpen]);
+
   // --- Open / close effects ---
   useEffect(() => {
     if (!pickerOpen) {
@@ -104,6 +119,11 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
     // Position immediately after open
     requestAnimationFrame(() => {
       positionPicker();
+      // Focus the search field so people can just start typing. preventScroll
+      // stops the browser from scrolling the page to the (portaled) input.
+      if (searchRef.current) {
+        try { searchRef.current.focus({ preventScroll: true }); } catch (e) {}
+      }
       // IntersectionObserver to reposition when summary scrolls out of view
       if (summaryRef.current && typeof IntersectionObserver !== 'undefined') {
         const thresholds = [];
@@ -167,19 +187,45 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickerOpen]);
 
-  // Close picker on ESC
+  // Clear the search when the picker closes.
+  useEffect(() => {
+    if (!pickerOpen) setQuery('');
+  }, [pickerOpen]);
+
+  // Recompute overflow hints + reposition when the filtered result set changes.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    requestAnimationFrame(() => {
+      if (gridRef.current) gridRef.current.scrollTop = 0;
+      positionPicker();
+      updateScrollState();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, pickerOpen]);
+
+  // Close picker on ESC (clear the search first if there's a query).
   useEffect(() => {
     if (!pickerOpen) return;
     function onKey(e) {
-      if (e.key === 'Escape') setPickerOpen(false);
+      if (e.key === 'Escape') {
+        if (query) setQuery('');
+        else setPickerOpen(false);
+      }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [pickerOpen]);
+  }, [pickerOpen, query]);
 
   function handleEmojiClick(ch) {
     onInsertEmoji(ch);
     setPickerOpen(false);
+  }
+
+  function handleSearchKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredEmojis.length) handleEmojiClick(filteredEmojis[0]);
+    }
   }
 
   const { hasOverflow, atStart, atEnd } = gridScrollState;
@@ -191,6 +237,35 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
           className={`fmt-emoji-grid-shell${flipAbove ? ' fmt-emoji-grid-shell--flip-above' : ''}`}
           style={pickerStyle}
         >
+          <div className="fmt-emoji-search">
+            <svg className="fmt-emoji-search-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              ref={searchRef}
+              type="text"
+              className="fmt-emoji-search-input"
+              placeholder="Search emoji…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              aria-label="Search emoji"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {query && (
+              <button
+                type="button"
+                className="fmt-emoji-search-clear"
+                aria-label="Clear search"
+                title="Clear"
+                onClick={() => { setQuery(''); if (searchRef.current) searchRef.current.focus(); }}
+              >
+                ×
+              </button>
+            )}
+          </div>
           <div
             className={`fmt-emoji-scroll-hint fmt-emoji-scroll-hint--top${!hasOverflow ? ' is-hidden' : ''}${hasOverflow && atStart ? ' fmt-emoji-scroll-hint--dim' : ''}`}
             aria-hidden="true"
@@ -213,7 +288,10 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
             aria-label="More emojis"
             onScroll={updateScrollState}
           >
-            {EMOJI_CHARS.map((ch, i) => (
+            {filteredEmojis.length === 0 && (
+              <div className="fmt-emoji-empty">No emoji match &ldquo;{query}&rdquo;</div>
+            )}
+            {filteredEmojis.map((ch, i) => (
               <button
                 key={i}
                 type="button"
@@ -280,6 +358,23 @@ export default function FormatToolbar({ targetId, targetRef, onInsertFormat, onI
         >
           ⋯
         </button>
+        {onClear && (
+          <button
+            type="button"
+            className="fmt-btn fmt-btn-clear"
+            style={{ marginLeft: 'auto' }}
+            title="Clear the text box"
+            aria-label="Clear the text box"
+            onClick={onClear}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </button>
+        )}
       </div>
       {pickerPortal}
     </div>

@@ -13,9 +13,9 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "emojilib": "^4.0.3",
     "firebase": "^11.10.0",
     "fuse.js": "^7.3.0",
-    "leo-profanity": "^1.9.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "zustand": "^5.0.13"

@@ -7,6 +7,6 @@ BRAINSTORM*.md
 node_modules/
 dist/
 
-# Nested Next.js app (has its own repo/secrets) and agent worktrees
-next-app/
+# The Next.js OAuth app (next-app/) is now tracked in this repo.
+# Its own next-app/.gitignore keeps secrets (.env.local) and build output (.next/, node_modules/) out.
 .claude/worktrees/

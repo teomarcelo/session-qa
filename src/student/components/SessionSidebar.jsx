@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import SessionInfo from './SessionInfo.jsx';
-import StudentChat from './StudentChat.jsx';
 
 const STU_SECTION_COLLAPSE_LS = 'sqa_student_section_collapsed_v1';
 
@@ -336,15 +335,6 @@ export default function SessionSidebar({
               </div>
             </div>
           </SideSection>
-          {sessionCode && (
-            <SideSection id="stu-sec-chat" title="Live chat">
-              <StudentChat
-                sessionCode={sessionCode}
-                userId={userId}
-                userName={userName}
-              />
-            </SideSection>
-          )}
         </div>
         <footer className="student-sidebar-footer" aria-label="Dashboard feedback">
           <p className="student-feedback-hint">

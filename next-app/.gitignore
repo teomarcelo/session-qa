@@ -1,0 +1,13 @@
+# Next.js
+.next/
+out/
+node_modules/
+
+# Env secrets — NEVER commit real values
+.env.local
+.env.production.local
+.env.development.local
+
+# OS / editor
+.DS_Store
+*.swp

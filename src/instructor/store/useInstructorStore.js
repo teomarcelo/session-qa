@@ -41,7 +41,10 @@ export const DEMO_QUESTIONS_TEMPLATE = [
 
 const useInstructorStore = create((set, get) => ({
   // Auth
-  currentInstructor: null,
+  currentInstructor: null,      // editable DISPLAY name (what students see)
+  instructorOwnerId: null,      // stable identity key (from verified Google email)
+  instructorLegacyOwnerId: null,// pre-OAuth name-based id, still queried so old sessions show
+  instructorEmail: null,        // verified Google email, when signed in via the gateway
   isDemoMode: false,
 
   // Sessions
@@ -90,6 +93,13 @@ const useInstructorStore = create((set, get) => ({
 
   // Actions
   setCurrentInstructor: (name) => set({ currentInstructor: name }),
+  // Set the stable identity separately from the display name. ownerId is required;
+  // legacyOwnerId/email are optional (null when unknown, e.g. demo or direct access).
+  setInstructorIdentity: ({ ownerId, legacyOwnerId = null, email = null }) => set({
+    instructorOwnerId: ownerId || null,
+    instructorLegacyOwnerId: legacyOwnerId || null,
+    instructorEmail: email || null,
+  }),
   setIsDemoMode: (val) => set({ isDemoMode: val }),
   setAllSessions: (sessions) => set({ allSessions: sessions }),
   setActiveSessionCode: (code) => set({ activeSessionCode: code }),
@@ -197,6 +207,9 @@ const useInstructorStore = create((set, get) => ({
   // Full reset for logout / new login
   resetForLogin: () => set({
     currentInstructor: null,
+    instructorOwnerId: null,
+    instructorLegacyOwnerId: null,
+    instructorEmail: null,
     isDemoMode: false,
     allSessions: [],
     activeSessionCode: null,

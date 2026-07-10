@@ -319,6 +319,7 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
         targetRef={textareaRef}
         onInsertFormat={handleInsertFormat}
         onInsertEmoji={handleInsertEmoji}
+        onClear={() => { setText(''); if (textareaRef.current) textareaRef.current.focus(); }}
       />
       <textarea
         id={textareaId}

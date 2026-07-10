@@ -8,7 +8,9 @@ import { htmlAnsweredStatusBadges } from '../../lib/answeredBadge.js';
 import { formatQuestionWhen } from '../../lib/formatQuestionWhen.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import useInstructorStore from '../store/useInstructorStore.js';
+import { myNameForSession } from '../hooks/useInstructorAuth.js';
 import AnswerBox from './AnswerBox.jsx';
+import SaveButton from './SaveButton.jsx';
 
 const EMPTY_ARR = [];
 
@@ -37,6 +39,9 @@ export default function QuestionCard({ q, showToast }) {
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
   const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
+  const allSessions = useInstructorStore(s => s.allSessions);
+  const instructorOwnerId = useInstructorStore(s => s.instructorOwnerId);
+  const instructorLegacyOwnerId = useInstructorStore(s => s.instructorLegacyOwnerId);
   const answerEditState = useInstructorStore(s => s.answerEditState);
   const setAnswerEditState = useInstructorStore(s => s.setAnswerEditState);
   const setAnswerDraft = useInstructorStore(s => s.setAnswerDraft);
@@ -81,18 +86,25 @@ export default function QuestionCard({ q, showToast }) {
   const saveAnswer = async () => {
     const text = answerDraft;
     const imgs = pendingImages.length ? [...pendingImages] : [];
-    if (!text.trim() && !imgs.length) return;
+    if (!text.trim() && !imgs.length) {
+      toast('Type an answer or attach an image first.');
+      return false;
+    }
 
     const currentIsEdit = !!(answerEditState && answerEditState.qId === q.id && answerEditState.index != null);
     const wasEdit = currentIsEdit;
     let updatedAnswers = [...answers];
 
+    // Name to author under is per-session (the session's ownerName when owned).
+    const activeSession = allSessions.find(s => s.id === activeSessionCode);
+    const myName = myNameForSession(activeSession, currentInstructor, instructorOwnerId, instructorLegacyOwnerId);
+
     if (currentIsEdit) {
       const idx = answerEditState.index;
-      if (idx < 0 || idx >= updatedAnswers.length) return;
+      if (idx < 0 || idx >= updatedAnswers.length) return false;
       const prev = updatedAnswers[idx];
       const next = {
-        instructor: prev.instructor || (currentInstructor || 'Instructor'),
+        instructor: prev.instructor || myName,
         text: text.trim() || (imgs.length ? '(Image)' : ''),
         ts: new Date().toISOString(),
       };
@@ -102,7 +114,7 @@ export default function QuestionCard({ q, showToast }) {
       setAnswerEditState(null);
     } else {
       const newAnswer = {
-        instructor: currentInstructor || 'Instructor',
+        instructor: myName,
         text: text.trim() || (imgs.length ? '(Image)' : ''),
         ts: new Date().toISOString(),
       };
@@ -121,10 +133,10 @@ export default function QuestionCard({ q, showToast }) {
       }));
       clearAnswerDraft(q.id);
       toast(wasEdit ? 'Answer updated.' : 'Answer saved!');
-      return;
+      return true;
     }
 
-    if (!db) { toast('Firebase not available.'); return; }
+    if (!db) { toast('Firebase not available.'); return false; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update({
         answers: updatedAnswers,
@@ -133,8 +145,10 @@ export default function QuestionCard({ q, showToast }) {
       });
       clearAnswerDraft(q.id);
       toast(wasEdit ? 'Answer updated.' : 'Answer saved!');
+      return true;
     } catch (e) {
       toast('Error saving answer: ' + e.message);
+      return false;
     }
   };
 
@@ -180,14 +194,16 @@ export default function QuestionCard({ q, showToast }) {
       const newPinned = !q.pinned;
       updateQuestionInPages(q.id, qItem => ({ ...qItem, pinned: newPinned }));
       toast(newPinned ? 'Question pinned!' : 'Unpinned.');
-      return;
+      return true;
     }
-    if (!db) { toast('Firebase not available.'); return; }
+    if (!db) { toast('Firebase not available.'); return false; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update({ pinned: !q.pinned });
       toast(q.pinned ? 'Unpinned.' : 'Question pinned!');
+      return true;
     } catch (e) {
       toast('Error: ' + e.message);
+      return false;
     }
   };
 
@@ -200,17 +216,19 @@ export default function QuestionCard({ q, showToast }) {
         return updated;
       });
       toast(status === 'answered' ? 'Marked as answered verbally.' : 'Marked as pending.');
-      return;
+      return true;
     }
     const patch = status === 'answered'
       ? { status, answeredVerbally: true }
       : { status, answeredVerbally: false };
-    if (!db) { toast('Firebase not available.'); return; }
+    if (!db) { toast('Firebase not available.'); return false; }
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update(patch);
       toast(status === 'answered' ? 'Marked as answered verbally.' : 'Marked as pending.');
+      return true;
     } catch (e) {
       toast('Error: ' + e.message);
+      return false;
     }
   };
 
@@ -343,22 +361,22 @@ export default function QuestionCard({ q, showToast }) {
 
       {/* Action buttons */}
       <div className="q-actions">
-        <button type="button" className="action-btn btn-answer" onClick={saveAnswer}>
+        <SaveButton className="action-btn btn-answer" onClick={saveAnswer}>
           <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
           <span>{isEditing ? 'Update answer' : 'Save answer'}</span>
-        </button>
-        <button type="button" className="action-btn btn-done" onClick={() => setStatus('answered')}>
+        </SaveButton>
+        <SaveButton className="action-btn btn-done" onClick={() => setStatus('answered')}>
           <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           <span>Answered verbally</span>
-        </button>
-        <button type="button" className="action-btn btn-pin" onClick={togglePin}>
+        </SaveButton>
+        <SaveButton className="action-btn btn-pin" onClick={togglePin}>
           <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76Z"/></svg>
           <span>{q.pinned ? 'Unpin' : 'Pin'}</span>
-        </button>
-        <button type="button" className="action-btn btn-pending" onClick={() => setStatus('pending')}>
+        </SaveButton>
+        <SaveButton className="action-btn btn-pending" onClick={() => setStatus('pending')}>
           <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>Mark pending</span>
-        </button>
+        </SaveButton>
         <button type="button" className="action-btn btn-delete" onClick={() => openDeleteModal(q.id)}>
           <svg className="action-btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
           <span>Delete</span>

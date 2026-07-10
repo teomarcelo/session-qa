@@ -11,6 +11,7 @@ import {
   JOIN_CODE_ROW_LEGACY_TDX_CLASS,
 } from '../../lib/sessionCode.js';
 import { nameToId } from '../hooks/useInstructorAuth.js';
+import SaveButton from './SaveButton.jsx';
 
 export default function JoinSessionModal() {
   const { db } = useFirebase();
@@ -43,19 +44,19 @@ export default function JoinSessionModal() {
     const code = buildSessionCodeFromJoinRow(sufEl);
     if (!code || code === SESSION_JOIN_PREFIX) {
       setError('Enter the four characters after SQA- (or paste a full TDX- code).');
-      return;
+      return false;
     }
     if (row && !row.classList.contains(JOIN_CODE_ROW_LEGACY_TDX_CLASS)) {
       const suf = String(sufEl.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (suf.length < 4) {
         setError('Enter all four characters after SQA-.');
-        return;
+        return false;
       }
     }
     try {
       const doc = await db.collection('sessions').doc(code).get();
-      if (!doc.exists) { setError('Session not found. Check the code.'); return; }
-      const ownerId = nameToId(currentInstructor || '');
+      if (!doc.exists) { setError('Session not found. Check the code.'); return false; }
+      const ownerId = useInstructorStore.getState().instructorOwnerId || nameToId(currentInstructor || '');
       const joinPayload = {
         joinedSessions: firebase.firestore.FieldValue.arrayUnion(code),
         sessionsHiddenFromList: firebase.firestore.FieldValue.arrayRemove(code),
@@ -71,7 +72,24 @@ export default function JoinSessionModal() {
           );
         });
       });
-      const sessionData = { id: code, ...doc.data() };
+
+      // Co-instructors are automatic: register the joiner on the session roster so
+      // students (and the lead) see who's teaching. Identity is already verified via
+      // the Google gateway, so we just record their display name.
+      const data = doc.data() || {};
+      const roster = Array.isArray(data.instructors)
+        ? data.instructors.map(n => String(n || '').trim()).filter(Boolean)
+        : String(data.instructorNames || '').split(',').map(n => n.trim()).filter(Boolean);
+      const myName = (currentInstructor || '').trim();
+      let nextRoster = roster;
+      if (myName && !roster.includes(myName)) {
+        nextRoster = [...roster, myName];
+        db.collection('sessions').doc(code).update({
+          instructors: nextRoster,
+          instructorNames: nextRoster.join(', '),
+        }).catch(() => {});
+      }
+      const sessionData = { id: code, ...data, instructors: nextRoster, instructorNames: nextRoster.join(', ') };
       const latestSessions = useInstructorStore.getState().allSessions;
       if (!latestSessions.find(s => s.id === code)) {
         setAllSessions([sessionData, ...latestSessions]);
@@ -79,8 +97,10 @@ export default function JoinSessionModal() {
       setActiveSessionCode(code);
       setOpen(false);
       showToast('Joined session ' + code);
+      return true;
     } catch (e) {
       setError('Error: ' + e.message);
+      return false;
     }
   };
 
@@ -116,7 +136,7 @@ export default function JoinSessionModal() {
         {error && <p className="error-msg" style={{ fontSize: '0.82rem', color: 'var(--warn)', minHeight: '1.2rem', marginBottom: '0.5rem' }}>{error}</p>}
         <div className="modal-footer">
           <button className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-          <button className="save-btn" style={{ padding: '0.55rem 1.25rem', marginTop: 0 }} onClick={handleJoin}>Join</button>
+          <SaveButton className="save-btn" style={{ padding: '0.55rem 1.25rem', marginTop: 0 }} onClick={handleJoin}>Join</SaveButton>
         </div>
       </div>
     </div>
