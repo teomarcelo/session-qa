@@ -4,6 +4,7 @@ import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import useInstructorStore from '../store/useInstructorStore.js';
 import { SESSION_JOIN_PREFIX } from '../../lib/sessionCode.js';
 import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../../lib/sessionLaunch.js';
+import SaveButton from './SaveButton.jsx';
 import { sessionDateInputToDisplay } from '../../lib/sessionDateLocal.js';
 import { DEFAULT_SESSION_TIMEZONE, SESSION_TIMEZONE_OPTIONS, initSessionTimezoneSelects } from '../../lib/sessionTimezones.js';
 
@@ -65,20 +66,24 @@ export default function CreateSessionModal() {
 
   const handleCreate = async () => {
     setError('');
-    if (!sessionName.trim()) { setError('Please enter a session name.'); return; }
+    if (!sessionName.trim()) { setError('Please enter a session name.'); return false; }
     if (orgClaimUrl && !/^https?:\/\//i.test(orgClaimUrl)) {
       setError('OrgClaim link must start with http:// or https://');
-      return;
+      return false;
     }
     if (surveyUrl && !/^https:\/\//i.test(surveyUrl)) {
       setError('Survey link must start with https://');
-      return;
+      return false;
     }
 
     const code = genCode();
-    const ownerId = currentInstructor
-      ? currentInstructor.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-      : '';
+    // Ownership is keyed on the stable identity (Google email), not the display name,
+    // so renaming yourself never orphans the sessions you created.
+    const state = useInstructorStore.getState();
+    const ownerId = state.instructorOwnerId
+      || (currentInstructor
+        ? currentInstructor.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+        : '');
 
     setLoading(true);
     const sessionPayload = {
@@ -110,7 +115,7 @@ export default function CreateSessionModal() {
       if (!doc.exists) {
         setError('Session was created but could not be loaded. Refresh the page.');
         setOpen(false);
-        return;
+        return false;
       }
       const merged = { id: doc.id, ...doc.data() };
       const latestSessions = useInstructorStore.getState().allSessions;
@@ -125,8 +130,10 @@ export default function CreateSessionModal() {
       setActiveSessionCode(code);
       setOpen(false);
       showToast('Session created: ' + code);
+      return true;
     } catch (e) {
       setError('Error: ' + (e && e.message ? e.message : String(e)));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -196,9 +203,9 @@ export default function CreateSessionModal() {
         {error && <p className="error-msg" style={{ fontSize: '0.82rem', color: 'var(--warn)', minHeight: '1.2rem', marginBottom: '0.5rem' }}>{error}</p>}
         <div className="modal-footer">
           <button className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-          <button className="save-btn" style={{ padding: '0.55rem 1.25rem', marginTop: 0 }} onClick={handleCreate} disabled={loading}>
-            {loading ? 'Creating…' : 'Create session'}
-          </button>
+          <SaveButton className="save-btn" style={{ padding: '0.55rem 1.25rem', marginTop: 0 }} onClick={handleCreate} disabled={loading}>
+            Create session
+          </SaveButton>
         </div>
       </div>
     </div>

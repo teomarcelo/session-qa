@@ -6,3 +6,7 @@ BRAINSTORM*.md
 
 node_modules/
 dist/
+
+# The Next.js OAuth app (next-app/) is now tracked in this repo.
+# Its own next-app/.gitignore keeps secrets (.env.local) and build output (.next/, node_modules/) out.
+.claude/worktrees/

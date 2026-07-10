@@ -5,6 +5,7 @@ import useInstructorStore from '../../store/useInstructorStore.js';
 import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../../../lib/sessionLaunch.js';
 import { parseDateInputLocal, formatDateInputLocal, sessionDateInputToDisplay } from '../../../lib/sessionDateLocal.js';
 import { DEFAULT_SESSION_TIMEZONE, SESSION_TIMEZONE_OPTIONS } from '../../../lib/sessionTimezones.js';
+import SaveButton from '../SaveButton.jsx';
 
 function formatDisplayTime(t) {
   if (!t) return '';
@@ -28,6 +29,34 @@ function displayTimeToTimeInput(display) {
   if (ap === 'PM' && h < 12) h += 12;
   if (ap === 'AM' && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+// Single source of truth for turning a session doc into editable form values.
+// Used both to fill the form and to detect unsaved changes.
+function deriveFormFromSession(s) {
+  const dateObj = firestoreDateLikeToDate(s.sessionDate);
+  const date = dateObj ? formatDateInputLocal(dateObj) : '';
+  const timeObj = firestoreDateLikeToDate(s.sessionTime);
+  let time = '';
+  if (timeObj) {
+    time = `${String(timeObj.getHours()).padStart(2, '0')}:${String(timeObj.getMinutes()).padStart(2, '0')}`;
+  } else {
+    time = displayTimeToTimeInput(s.sessionTime) || '';
+  }
+  const rawTz = String(s.sessionTimezone || '').trim();
+  const timezone = SESSION_TIMEZONE_OPTIONS.some(o => o.value === rawTz) ? rawTz : DEFAULT_SESSION_TIMEZONE;
+  return {
+    sessionName: s.sessionName || '',
+    date,
+    time,
+    timezone,
+    room: s.room || '',
+    desc: s.description || '',
+    orgClaimUrl: String(s.studentOrgClaimUrl || '').trim(),
+    orgClaimCopy: s.studentOrgClaimCopyText || '',
+    surveyUrl: s.studentSurveyUrl || '',
+    surveyCopy: s.studentSurveyCopyText || '',
+  };
 }
 
 function firestoreDateLikeToDate(val) {
@@ -73,37 +102,34 @@ export default function SessionSettings() {
     if (!activeSessionCode) return;
     const s = allSessions.find(x => x.id === activeSessionCode);
     if (!s) return;
-    setSessionName(s.sessionName || '');
-    setRoom(s.room || '');
-    setDesc(s.description || '');
-    setOrgClaimUrl(String(s.studentOrgClaimUrl || '').trim());
-    setOrgClaimCopy(s.studentOrgClaimCopyText || '');
-    setSurveyUrl(s.studentSurveyUrl || '');
-    setSurveyCopy(s.studentSurveyCopyText || '');
-
-    const dateObj = firestoreDateLikeToDate(s.sessionDate);
-    setDate(dateObj ? formatDateInputLocal(dateObj) : '');
-
-    const timeObj = firestoreDateLikeToDate(s.sessionTime);
-    if (timeObj) {
-      setTime(`${String(timeObj.getHours()).padStart(2, '0')}:${String(timeObj.getMinutes()).padStart(2, '0')}`);
-    } else {
-      setTime(displayTimeToTimeInput(s.sessionTime) || '');
-    }
-
-    const rawTz = String(s.sessionTimezone || '').trim();
-    setTimezone(SESSION_TIMEZONE_OPTIONS.some(o => o.value === rawTz) ? rawTz : DEFAULT_SESSION_TIMEZONE);
+    const f = deriveFormFromSession(s);
+    setSessionName(f.sessionName);
+    setRoom(f.room);
+    setDesc(f.desc);
+    setOrgClaimUrl(f.orgClaimUrl);
+    setOrgClaimCopy(f.orgClaimCopy);
+    setSurveyUrl(f.surveyUrl);
+    setSurveyCopy(f.surveyCopy);
+    setDate(f.date);
+    setTime(f.time);
+    setTimezone(f.timezone);
   }, [activeSessionCode, allSessions]);
 
+  // Unsaved-changes detection: compare the live form to the saved session doc.
+  const activeSession = allSessions.find(x => x.id === activeSessionCode);
+  const currentForm = { sessionName, date, time, timezone, room, desc, orgClaimUrl, orgClaimCopy, surveyUrl, surveyCopy };
+  const dirty = !!activeSession
+    && JSON.stringify(currentForm) !== JSON.stringify(deriveFormFromSession(activeSession));
+
   const handleSave = async () => {
-    if (!activeSessionCode) { showToast('Select a session first.'); return; }
+    if (!activeSessionCode) { showToast('Select a session first.'); return false; }
     if (orgClaimUrl && !/^https?:\/\//i.test(orgClaimUrl)) {
       showToast('OrgClaim link must start with http:// or https://');
-      return;
+      return false;
     }
     if (surveyUrl && !/^https:\/\//i.test(surveyUrl)) {
       showToast('Survey link must start with https://');
-      return;
+      return false;
     }
     const payload = {
       sessionName: sessionName.trim(),
@@ -127,10 +153,10 @@ export default function SessionSettings() {
         setAllSessions(updated);
       }
       showToast('Session info saved! (demo)');
-      return;
+      return true;
     }
 
-    if (!db) { showToast('Firebase not available.'); return; }
+    if (!db) { showToast('Firebase not available.'); return false; }
     try {
       await db.collection('sessions').doc(activeSessionCode).update({
         ...payload,
@@ -142,8 +168,10 @@ export default function SessionSettings() {
       );
       setAllSessions(updated);
       showToast('Session info saved!');
+      return true;
     } catch (e) {
       showToast('Could not save session: ' + (e && e.message ? e.message : String(e)));
+      return false;
     }
   };
 
@@ -195,7 +223,14 @@ export default function SessionSettings() {
         <label>Survey ID (text students copy)</label>
         <input className="mini-input" id="sf-survey-copy" type="text" placeholder="Shown under SURVEY on the student Session card." autoComplete="off" value={surveyCopy} onChange={e => setSurveyCopy(e.target.value)} />
       </div>
-      <button className="save-btn" onClick={handleSave}>Save session info</button>
+      <div className="save-row">
+        <SaveButton className="save-btn" onClick={handleSave} dirty={dirty}>
+          Save session info
+        </SaveButton>
+        {dirty && (
+          <span className="unsaved-badge"><span className="unsaved-dot" />Unsaved changes</span>
+        )}
+      </div>
     </div>
   );
 }

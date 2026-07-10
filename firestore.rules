@@ -1,8 +1,40 @@
 rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session Q&A — Firestore security rules
+//
+// SECURITY MODEL (read before editing):
+// The web client talks to Firestore directly using the public web config and
+// has NO Firebase Auth token. Rules therefore CANNOT tell an instructor apart
+// from an anonymous attacker for writes. Access to the instructor *dashboard*
+// is gated separately by the Next.js OAuth layer (@salesforce.com only), but
+// that gate does not attach an identity to Firestore writes.
+//
+// What these rules do today (defense-in-depth against abuse/cost, not identity):
+//   - Validate shape + size on public creates (questions, sessions, feedback)
+//     so nobody can write oversized/cost-inflating or malformed documents.
+//   - Force new questions into a clean initial state (no pre-pinned / pre-voted
+//     / pre-answered injection).
+//   - Forbid destructive deletes where the app never needs them.
+//
+// PHASE 2 — TRUE WRITE LOCKDOWN (follow-up, requires a service account):
+//   Route every instructor mutation (create/update session, delete/pin/answer
+//   question, manage instructors) through authenticated Next.js API routes using
+//   the Firebase Admin SDK (which bypasses these rules). Then flip client writes
+//   on instructor-only paths to `if false`. Until that proxy exists, locking
+//   these paths here would break the live app.
+//
+// DEPLOY: changes here are NOT live until you run
+//   firebase deploy --only firestore:rules
+// Review carefully first — this app is in active production use.
+// ─────────────────────────────────────────────────────────────────────────────
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Instructors self-register — PIN is stored hashed (SHA-256), never plain text
+    // Instructor accounts (display name + hashed PIN). Also written by the
+    // co-instructor "join" flow via set(merge) → keep create/update permissive
+    // until instructor writes move server-side (Phase 2). Never client-deletable.
     match /instructors/{instructorId} {
       allow read: if true;
       allow create: if true;
@@ -13,26 +45,35 @@ service cloud.firestore {
     // Sessions (instructor creates/updates session info) and questions
     match /sessions/{sessionId} {
       allow read: if true;
-      allow create, update: if true;
+      // Validate the one required field + cap sizes on create; updates stay open
+      // (many partial updates: settings, notes, arrays) pending the Phase 2 proxy.
+      allow create: if request.resource.data.sessionName is string
+        && request.resource.data.sessionName.size() > 0
+        && request.resource.data.sessionName.size() <= 300;
+      allow update: if true;
       allow delete: if false;
+
       match /questions/{questionId} {
         allow read: if true;
-        allow create: if true;
+        // New questions must arrive in a clean initial state with capped sizes.
+        allow create: if request.resource.data.keys().hasAll(
+              ['text', 'authorName', 'authorId', 'createdAt', 'status', 'pinned', 'votes', 'voters']
+            )
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000
+          && request.resource.data.authorName is string
+          && request.resource.data.authorName.size() <= 200
+          && request.resource.data.authorId is string
+          && request.resource.data.authorId.size() <= 200
+          && request.resource.data.status == 'pending'
+          && request.resource.data.pinned == false
+          && request.resource.data.votes == 0
+          && request.resource.data.voters is list
+          && request.resource.data.voters.size() == 0;
         // Updates keep authorId unchanged (votes, answers, status, student text edits).
         allow update: if resource.data.authorId == request.resource.data.authorId;
-        // Instructors delete from the dashboard; without Firebase Auth this cannot be restricted to “only instructors”.
-        allow delete: if true;
-      }
-      // Live chat — students and instructors read/create/update/delete.
-      // Without Firebase Auth we cannot restrict deletes to only the author or instructor;
-      // the client enforces author-only edit and instructor-only delete-any.
-      match /chat/{msgId} {
-        allow read: if true;
-        allow create: if request.resource.data.keys().hasAll(['authorName', 'authorId', 'text', 'createdAt', 'reactions', 'isInstructor'])
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 4000;
-        allow update: if true;
+        // Instructors delete from the dashboard; without Firebase Auth this cannot
+        // be restricted to "only instructors" until the Phase 2 server proxy exists.
         allow delete: if true;
       }
       // Anonymous student dashboard feedback per session (path implies session; no email stored).

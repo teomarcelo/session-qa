@@ -1,18 +1,31 @@
 import { useState } from 'react';
 import { useInstructorAuth } from '../hooks/useInstructorAuth.js';
 
+/** Read the Google identity passed by the Next.js gateway via the iframe URL. */
+function readSsoIdentity() {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    return {
+      name: (p.get('sso_name') || '').trim(),
+      email: (p.get('sso_email') || '').trim(),
+    };
+  } catch (e) {
+    return { name: '', email: '' };
+  }
+}
+
 export default function LoginScreen() {
-  const [signinName, setSigninName] = useState('');
-  const [signinPin, setSigninPin] = useState('');
+  const [sso] = useState(readSsoIdentity);
+  const [name, setName] = useState(sso.name);
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login, enterDemo } = useInstructorAuth();
+  const { continueAs, enterDemo } = useInstructorAuth();
 
-  const handleLogin = async () => {
+  const handleContinue = async () => {
     setLoginError('');
     setLoading(true);
-    const err = await login(signinName, signinPin);
+    const err = await continueAs(name, sso.email);
     setLoading(false);
     if (err) setLoginError(err);
   };
@@ -30,49 +43,43 @@ export default function LoginScreen() {
         </div>
 
         <div id="mode-signin">
-          <h1 className="login-title">Welcome back</h1>
-          <p className="login-sub">Sign in with your instructor name and PIN.</p>
+          <h1 className="login-title">You're signed in</h1>
+          {sso.email ? (
+            <p className="login-sub">
+              Verified with Google as <strong>{sso.email}</strong>. Confirm the name
+              students will see, then continue.
+            </p>
+          ) : (
+            <p className="login-sub">Enter the name you want to go by, then continue.</p>
+          )}
+
           <div className="field">
-            <label>Your name</label>
+            <label>Name students see</label>
             <input
               id="signin-name"
               type="text"
               placeholder="e.g. Alex Rivera"
-              autoComplete="username"
-              value={signinName}
-              onChange={e => setSigninName(e.target.value)}
+              autoComplete="name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleContinue(); }}
             />
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', margin: '0.4rem 0 0' }}>
+              This is how you appear to students and how your sessions are grouped. You can change it.
+            </p>
           </div>
-          <div className="field">
-            <label>Your PIN</label>
-            <input
-              id="signin-pin"
-              type="password"
-              placeholder="Enter your PIN"
-              autoComplete="current-password"
-              value={signinPin}
-              onChange={e => setSigninPin(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
-            />
-          </div>
-          <button className="btn-primary" onClick={handleLogin} disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign in'}
+
+          <button className="btn-primary" onClick={handleContinue} disabled={loading}>
+            {loading ? 'Continuing…' : 'Continue'}
           </button>
           {loginError && <p className="error-msg">{loginError}</p>}
-          <p style={{ textAlign: 'center', marginTop: '0.9rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            New instructor accounts are currently provisioned by an admin.
-          </p>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem' }}>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>or</span>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
           </div>
           <DemoButton onClick={handleDemoMode} />
-        </div>
-
-        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)', fontSize: '0.82rem', color: 'var(--text-light)', textAlign: 'center' }}>
-          🔒 Future upgrade: Restrict to <strong>@salesforce.com</strong> via Salesforce OAuth<br/>
-          <a href="#" style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: '0.8rem' }}>See setup instructions →</a>
         </div>
       </div>
     </div>

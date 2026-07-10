@@ -12,13 +12,12 @@ import FilterSort from './FilterSort.jsx';
 import StatsSection from './StatsSection.jsx';
 import SessionNotesEditor from './SessionNotesEditor.jsx';
 import SessionFeedbackList from './SessionFeedbackList.jsx';
-import SessionChat from './SessionChat.jsx';
 
 // ── Sidebar accordion ──────────────────────────────────────────
 const INSTR_SECTION_COLLAPSE_LS = 'sqa_instructor_section_collapsed_v1';
 const INSTR_SECTION_IDS = [
   'sec-sessions', 'sec-session', 'sec-stats', 'sec-filters',
-  'sec-session-sidebar', 'sec-chat', 'sec-session-feedback',
+  'sec-session-sidebar', 'sec-session-feedback',
 ];
 
 function readCollapseOverrides() {
@@ -289,7 +288,7 @@ export default function InstructorSidebar() {
           <SideSection id="sec-session" label="Session settings" defaultCollapsed={true}>
             <SessionSettings />
             <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Co-instructors</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Instructors</div>
               <InstructorManager />
             </div>
           </SideSection>
@@ -304,10 +303,6 @@ export default function InstructorSidebar() {
 
           <SideSection id="sec-session-sidebar" label="Instructor Notes">
             <SessionNotesEditor />
-          </SideSection>
-
-          <SideSection id="sec-chat" label="Live chat">
-            <SessionChat />
           </SideSection>
 
           <SideSection id="sec-session-feedback" label="Dashboard feedback" defaultCollapsed={true}>

@@ -15,6 +15,8 @@ export function useSessions() {
   const unsubRef = useRef(null);
 
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
+  const instructorOwnerId = useInstructorStore(s => s.instructorOwnerId);
+  const instructorLegacyOwnerId = useInstructorStore(s => s.instructorLegacyOwnerId);
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
   const allSessions = useInstructorStore(s => s.allSessions);
   const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
@@ -34,9 +36,19 @@ export function useSessions() {
       unsubRef.current = null;
     }
 
-    const ownerId = nameToId(currentInstructor);
-    const unsub = db.collection('sessions')
-      .where('ownerId', '==', ownerId)
+    // Stable identity (email-based) plus the legacy name-based id, so sessions created
+    // before the email-identity switch keep showing. Fall back to the display name id
+    // if identity hasn't been set (e.g. legacy stored session with no SSO params).
+    const ownerId = instructorOwnerId || nameToId(currentInstructor);
+    const legacyId = instructorLegacyOwnerId && instructorLegacyOwnerId !== ownerId
+      ? instructorLegacyOwnerId
+      : null;
+    const ownerIds = legacyId ? [ownerId, legacyId] : [ownerId];
+    const sessionsQuery = ownerIds.length > 1
+      ? db.collection('sessions').where('ownerId', 'in', ownerIds)
+      : db.collection('sessions').where('ownerId', '==', ownerId);
+
+    const unsub = sessionsQuery
       .onSnapshot(snap => {
         const owned = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         // Sort by createdAt descending in JS (no orderBy to avoid composite index)
@@ -46,11 +58,19 @@ export function useSessions() {
           return bt - at;
         });
 
-        // Load joined sessions from instructors/{id}
-        db.collection('instructors').doc(ownerId).get().then(doc => {
-          const joinedCodes = doc.exists && doc.data().joinedSessions ? doc.data().joinedSessions : [];
-          const hidden = doc.exists && Array.isArray(doc.data().sessionsHiddenFromList) ? doc.data().sessionsHiddenFromList : [];
-          const hiddenSet = new Set(hidden);
+        // Load joined sessions + hidden list from the instructor doc(s). Read both the
+        // stable and legacy ids and merge, since older data lives under the legacy id.
+        Promise.all(ownerIds.map(id => db.collection('instructors').doc(id).get())).then(docs => {
+          const joinedSet = new Set();
+          const hiddenArr = [];
+          docs.forEach(doc => {
+            if (!doc.exists) return;
+            const d = doc.data() || {};
+            if (Array.isArray(d.joinedSessions)) d.joinedSessions.forEach(c => joinedSet.add(c));
+            if (Array.isArray(d.sessionsHiddenFromList)) hiddenArr.push(...d.sessionsHiddenFromList);
+          });
+          const joinedCodes = [...joinedSet];
+          const hiddenSet = new Set(hiddenArr);
           const applyHidden = (arr) => arr.filter(s => s && !hiddenSet.has(s.id));
 
           const mergeAndUpdate = (joined) => {
@@ -86,7 +106,7 @@ export function useSessions() {
         unsubRef.current = null;
       }
     };
-  }, [currentInstructor, isDemoMode, db]);
+  }, [currentInstructor, instructorOwnerId, instructorLegacyOwnerId, isDemoMode, db]);
 
   function loadDemoSessions() {
     const hidden = getDemoHiddenSessionIds();
@@ -148,11 +168,13 @@ export function useSessions() {
     }
 
     if (!db) return;
-    const ownerId = nameToId(state.currentInstructor || '');
+    const ownerId = state.instructorOwnerId || nameToId(state.currentInstructor || '');
     try {
-      await db.collection('instructors').doc(ownerId).update({
+      // set(..., {merge:true}) so the doc is created if this is the instructor's first
+      // write under the stable email-based id (older data lived under the legacy id).
+      await db.collection('instructors').doc(ownerId).set({
         sessionsHiddenFromList: firebase.firestore.FieldValue.arrayUnion(sessionCode),
-      });
+      }, { merge: true });
     } catch (e) {
       useInstructorStore.getState().showToast('Could not update list: ' + (e.message || e));
       return;

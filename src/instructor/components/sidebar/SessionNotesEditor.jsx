@@ -8,11 +8,31 @@ import { useEffect, useRef } from 'react';
 import firebase from '../../../lib/firebaseCompat.js';
 import { useFirebase } from '../../../shared/FirebaseContext.jsx';
 import useInstructorStore from '../../store/useInstructorStore.js';
-import { SESSION_SIDEBAR_NOTES_MAX, SESSION_NOTE_LINKS_MAX } from '../../../lib/sessionNotes.js';
+import { SESSION_SIDEBAR_NOTES_MAX, SESSION_NOTE_LINKS_MAX, getSessionNotesFromDoc } from '../../../lib/sessionNotes.js';
+import { myNameForSession } from '../../hooks/useInstructorAuth.js';
 import FormatToolbar from '../FormatToolbar.jsx';
+import SaveButton from '../SaveButton.jsx';
 
 function newSessionNoteId() {
   return 'sn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+}
+
+// Canonical, comparable shape for a note (drops editor-only fields like
+// editorCollapsed and empty notes) so we can detect unsaved changes.
+function canonicalNotes(notes) {
+  return (notes || [])
+    .map(n => ({
+      id: String(n.id || ''),
+      title: String(n.title || '').trim(),
+      body: String(n.body || '').trim(),
+      imageUrls: Array.isArray(n.imageUrls) ? n.imageUrls.map(u => String(u).trim()).filter(Boolean) : [],
+      links: (Array.isArray(n.links) ? n.links : [])
+        .map(l => ({ url: String((l && (l.url || l.href)) || '').trim(), label: String((l && (l.label || l.name)) || '').trim() }))
+        .filter(l => /^https?:\/\//i.test(l.url)),
+      show: n.show !== false,
+      instructor: String(n.instructor || '').trim(),
+    }))
+    .filter(n => n.title || n.body || n.imageUrls.length || n.links.length);
 }
 
 function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
@@ -109,7 +129,7 @@ function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
             <textarea
               className="mini-input mini-textarea sn-body-input"
               id={bodyId}
-              placeholder="Links, dial-in…"
+              placeholder="Announcements, reminders, resources…"
               value={note.body || ''}
               onChange={e => updateField('body', e.target.value)}
             />
@@ -161,9 +181,22 @@ export default function SessionNotesEditor() {
   const sessionNoteShow = useInstructorStore(s => s.sessionNoteShow);
   const setSessionNoteShow = useInstructorStore(s => s.setSessionNoteShow);
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
+  const instructorOwnerId = useInstructorStore(s => s.instructorOwnerId);
+  const instructorLegacyOwnerId = useInstructorStore(s => s.instructorLegacyOwnerId);
   const showToast = useInstructorStore(s => s.showToast);
 
   const editorRef = useRef(null);
+
+  // Unsaved-changes detection: compare the current draft (and master show toggle)
+  // to the saved session doc.
+  const activeSession = allSessions.find(x => x.id === activeSessionCode);
+  const savedShow = activeSession ? activeSession.sessionNoteShow !== false : true;
+  const savedCanon = activeSession ? canonicalNotes(getSessionNotesFromDoc(activeSession)) : [];
+  const draftCanon = canonicalNotes(sessionNotesDraft);
+  const dirty = !!activeSession && (
+    sessionNoteShow !== savedShow ||
+    JSON.stringify(draftCanon) !== JSON.stringify(savedCanon)
+  );
 
   // Wire HTML5 drag-and-drop for reordering
   useEffect(() => {
@@ -241,6 +274,8 @@ export default function SessionNotesEditor() {
       showToast(`At most ${SESSION_SIDEBAR_NOTES_MAX} session notes.`);
       return;
     }
+    const activeSession = allSessions.find(s => s.id === activeSessionCode);
+    const myName = myNameForSession(activeSession, currentInstructor, instructorOwnerId, instructorLegacyOwnerId);
     const collapsed = sessionNotesDraft.map(n => ({ ...n, editorCollapsed: true }));
     setSessionNotesDraft([
       ...collapsed,
@@ -252,7 +287,7 @@ export default function SessionNotesEditor() {
         imageUrls: [],
         links: [],
         show: true,
-        instructor: currentInstructor || 'Instructor',
+        instructor: myName,
         editorCollapsed: false,
       },
     ]);
@@ -278,7 +313,7 @@ export default function SessionNotesEditor() {
   };
 
   const save = async () => {
-    if (!activeSessionCode) { showToast('Select a session first.'); return; }
+    if (!activeSessionCode) { showToast('Select a session first.'); return false; }
 
     const persistNotes = sessionNotesDraft
       .filter(n =>
@@ -314,10 +349,10 @@ export default function SessionNotesEditor() {
       );
       setAllSessions(updated);
       showToast('Session notes updated (demo).');
-      return;
+      return true;
     }
 
-    if (!db) { showToast('Firebase not available.'); return; }
+    if (!db) { showToast('Firebase not available.'); return false; }
     try {
       await db.collection('sessions').doc(activeSessionCode).update(payload);
       const updated = allSessions.map(s =>
@@ -327,8 +362,10 @@ export default function SessionNotesEditor() {
       );
       setAllSessions(updated);
       showToast('Session notes saved.');
+      return true;
     } catch (e) {
       showToast('Error: ' + e.message);
+      return false;
     }
   };
 
@@ -367,9 +404,14 @@ export default function SessionNotesEditor() {
       <button type="button" className="add-btn sn-add-note-btn" style={{ marginTop: '0.5rem', width: '100%' }} onClick={addNote}>
         + Add note
       </button>
-      <button className="save-btn" style={{ background: 'var(--accent)', marginTop: '0.65rem' }} onClick={save}>
-        Save session notes
-      </button>
+      <div className="save-row" style={{ marginTop: '0.65rem' }}>
+        <SaveButton className="save-btn" style={{ background: 'var(--accent)' }} onClick={save} dirty={dirty}>
+          Save session notes
+        </SaveButton>
+        {dirty && (
+          <span className="unsaved-badge"><span className="unsaved-dot" />Unsaved changes</span>
+        )}
+      </div>
     </div>
   );
 }

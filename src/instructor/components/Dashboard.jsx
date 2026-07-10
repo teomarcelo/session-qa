@@ -9,14 +9,15 @@
  * - Stats refresh wiring
  * - Session notes hydration when active session changes
  */
-import { Component, useEffect, useRef } from 'react';
+import { Component, useEffect, useRef, useState } from 'react';
 import { IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY } from '../../constants/app.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import useInstructorStore, { DEMO_SESSION, DEMO_SESSION_CODE, DEMO_QUESTIONS_TEMPLATE } from '../store/useInstructorStore.js';
-import { useInstructorAuth, persistInstructorActiveSession, getDemoHiddenSessionIds, DEMO_SESSIONS_HIDDEN_KEY } from '../hooks/useInstructorAuth.js';
+import { useInstructorAuth, persistInstructorActiveSession, getDemoHiddenSessionIds, DEMO_SESSIONS_HIDDEN_KEY, myNameForSession, instructorOwnsSession } from '../hooks/useInstructorAuth.js';
 import { useSessionStats } from '../hooks/useSessionStats.js';
 import { getSessionNotesFromDoc } from '../../lib/sessionNotes.js';
 import { extractImageUrlForQuestionPaste } from '../../lib/clipboardImagePaste.js';
+import { insertEmoji } from './FormatToolbar.jsx';
 import InstructorSidebar from './sidebar/InstructorSidebar.jsx';
 import QuestionsList from './QuestionsList.jsx';
 import StudentViewOverlay from './StudentViewOverlay.jsx';
@@ -89,6 +90,32 @@ function initEmojiPickerLayout() {
     });
   }
 
+  // Keyword filter over a shell's grid cells (matches data-search on each cell).
+  function filterShell(shell, q) {
+    if (!shell) return;
+    const grid = shell.querySelector('.fmt-emoji-grid');
+    const empty = shell.querySelector('.fmt-emoji-empty');
+    if (!grid) return;
+    const raw = String(q || '').trim();
+    const terms = raw.toLowerCase().split(/\s+/).filter(Boolean);
+    let visible = 0;
+    grid.querySelectorAll('.fmt-emoji-picker-cell').forEach(cell => {
+      let show = true;
+      if (terms.length) {
+        const text = cell.getAttribute('data-search') || '';
+        show = terms.every(term => text.includes(term));
+      }
+      cell.classList.toggle('is-hidden', !show);
+      if (show) visible++;
+    });
+    if (empty) {
+      empty.textContent = raw ? `No emoji match “${raw}”` : 'No emoji match';
+      empty.classList.toggle('is-hidden', visible > 0);
+    }
+    shell.classList.toggle('is-search-empty', visible === 0);
+    grid.scrollTop = 0;
+  }
+
   document.addEventListener('toggle', (e) => {
     const t = e.target;
     if (!t || !t.matches || !t.matches('details.fmt-emoji-more')) return;
@@ -113,7 +140,55 @@ function initEmojiPickerLayout() {
         }
       }
       positionPicker(t);
+      // Reset the search and focus it so instructors can just start typing.
+      const shell2 = t._fmtEmojiShell || (grid && grid.closest('.fmt-emoji-grid-shell'));
+      if (shell2) {
+        const input = shell2.querySelector('.fmt-emoji-search-input');
+        if (input) input.value = '';
+        filterShell(shell2, '');
+        if (input) { try { input.focus({ preventScroll: true }); } catch (err) {} }
+      }
     });
+  }, true);
+
+  // Cells are moved to document.body (outside React's tree), so their clicks are
+  // handled here rather than via React onClick.
+  document.addEventListener('click', (e) => {
+    const cell = e.target && e.target.closest && e.target.closest('.fmt-emoji-picker-cell[data-emoji-target]');
+    if (!cell) return;
+    e.preventDefault();
+    const tid = cell.getAttribute('data-emoji-target');
+    const ch = cell.getAttribute('data-ch');
+    if (tid && ch) insertEmoji(tid, ch);
+    const shell = cell.closest('.fmt-emoji-grid-shell');
+    const det = shell && shell._fmtEmojiDetails;
+    if (det) det.open = false;
+  });
+
+  // Live filter as the instructor types in a picker's search field.
+  document.addEventListener('input', (e) => {
+    const input = e.target;
+    if (!input || !input.classList || !input.classList.contains('fmt-emoji-search-input')) return;
+    const shell = input.closest('.fmt-emoji-grid-shell');
+    filterShell(shell, input.value);
+    scheduleReposition();
+  });
+
+  // Enter inserts the first match; Esc clears the query before closing.
+  document.addEventListener('keydown', (e) => {
+    const input = e.target;
+    if (!input || !input.classList || !input.classList.contains('fmt-emoji-search-input')) return;
+    const shell = input.closest('.fmt-emoji-grid-shell');
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const first = shell && shell.querySelector('.fmt-emoji-picker-cell:not(.is-hidden)');
+      if (first) first.click();
+    } else if (e.key === 'Escape' && input.value) {
+      e.preventDefault();
+      e.stopPropagation();
+      input.value = '';
+      filterShell(shell, '');
+    }
   }, true);
 
   const cap = { passive: true, capture: true };
@@ -200,10 +275,16 @@ class DashboardErrorBoundary extends Component {
 // ── Dashboard component ────────────────────────────────────────
 function DashboardInner() {
   const { db, storage } = useFirebase();
-  const { logout } = useInstructorAuth();
+  const { logout, setGlobalDisplayName, renameInSession } = useInstructorAuth();
   const { updateStats, cancelPending, runRefresh } = useSessionStats();
 
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
+  const instructorOwnerId = useInstructorStore(s => s.instructorOwnerId);
+  const instructorLegacyOwnerId = useInstructorStore(s => s.instructorLegacyOwnerId);
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
   const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
   const allSessions = useInstructorStore(s => s.allSessions);
@@ -349,11 +430,19 @@ function DashboardInner() {
     const s = allSessions.find(x => x.id === activeSessionCode);
     if (!s) return;
     const arr = getSessionNotesFromDoc(s);
+    // Preserve the instructor's manual expand/collapse per note across re-hydrations
+    // (e.g. after Save, which updates allSessions). Only fall back to the default
+    // (collapse all but the last) for notes not already in the current draft — i.e.
+    // when switching to a different session.
+    const prevDraft = useInstructorStore.getState().sessionNotesDraft;
+    const prevCollapse = new Map(prevDraft.map(n => [n.id, n.editorCollapsed]));
     setSessionNotesDraft(arr.map((n, i) => ({
       ...n,
       imageUrls: [...(n.imageUrls || [])],
       links: (n.links || []).map(l => ({ url: l.url, label: l.label || '' })),
-      editorCollapsed: arr.length > 1 ? i !== arr.length - 1 : false,
+      editorCollapsed: prevCollapse.has(n.id)
+        ? prevCollapse.get(n.id)
+        : (arr.length > 1 ? i !== arr.length - 1 : false),
     })));
     setSessionNoteShow(s.sessionNoteShow !== false);
   }, [activeSessionCode, allSessions]);
@@ -388,6 +477,59 @@ function DashboardInner() {
     navigator.clipboard.writeText(activeSessionCode).then(() => showToast('Code copied!'));
   };
 
+  // Full sign-out: clear the in-app session, then (when embedded behind the OAuth
+  // gateway) navigate the TOP window to the gateway logout so the Google/app session
+  // cookie is destroyed and the user lands back on /login.
+  const handleSignOut = () => {
+    logout();
+    let logoutUrl = '';
+    try {
+      logoutUrl = (new URLSearchParams(window.location.search).get('sso_logout') || '').trim();
+    } catch (e) { logoutUrl = ''; }
+    if (logoutUrl) {
+      try {
+        window.top.location.href = logoutUrl;
+        return;
+      } catch (e) {
+        window.location.href = logoutUrl;
+        return;
+      }
+    }
+  };
+
+  // Names are per-session: when a session you own is active, the top-bar name is
+  // that session's name; otherwise it's your default (used for new sessions).
+  const activeSession = allSessions.find(s => s.id === activeSessionCode);
+  const ownsActive = instructorOwnsSession(activeSession, instructorOwnerId, instructorLegacyOwnerId);
+  const nameIsSessionScoped = !!activeSession && ownsActive;
+  const displayNameShown = myNameForSession(activeSession, currentInstructor, instructorOwnerId, instructorLegacyOwnerId);
+
+  const startEditName = () => {
+    setNameDraft(displayNameShown || '');
+    setEditingName(true);
+  };
+  const saveEditName = async () => {
+    if (savingName) return;
+    const draft = nameDraft.trim();
+    if (!draft) { showToast('Please enter a name.'); return; }
+    if (draft === (displayNameShown || '')) { setEditingName(false); return; }
+    setSavingName(true);
+    if (nameIsSessionScoped) {
+      showToast('Updating your name for this session…');
+      const err = await renameInSession(activeSession.id, draft);
+      setSavingName(false);
+      if (err) { showToast(err); return; }
+      setEditingName(false);
+      showToast('Name updated for this session.');
+    } else {
+      const err = setGlobalDisplayName(draft);
+      setSavingName(false);
+      if (err) { showToast(err); return; }
+      setEditingName(false);
+      showToast('Default name updated (used for new sessions).');
+    }
+  };
+
   return (
     <>
       <div id="app-screen" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -399,9 +541,54 @@ function DashboardInner() {
             </div>
             <span className="top-bar-name">Session Q&amp;A</span>
             <span className="instructor-badge">Instructor</span>
-            <span id="instructor-name-bar" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              {currentInstructor || 'Instructor'}
-            </span>
+            {editingName ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <input
+                  className="mini-input"
+                  type="text"
+                  aria-label="Your display name"
+                  value={nameDraft}
+                  autoFocus
+                  disabled={savingName}
+                  onChange={e => setNameDraft(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveEditName();
+                    if (e.key === 'Escape' && !savingName) setEditingName(false);
+                  }}
+                  style={{ width: 160, padding: '0.2rem 0.45rem', fontSize: '0.82rem' }}
+                />
+                <button className="top-btn" onClick={saveEditName} disabled={savingName}>
+                  {savingName ? 'Saving…' : 'Save'}
+                </button>
+                <button className="top-btn" onClick={() => setEditingName(false)} disabled={savingName}>Cancel</button>
+              </span>
+            ) : (
+              <span
+                id="instructor-name-bar"
+                onClick={isDemoMode ? undefined : startEditName}
+                title={isDemoMode
+                  ? undefined
+                  : (nameIsSessionScoped
+                    ? 'Click to change the name students see in this session'
+                    : 'Click to change your default name (used for new sessions)')}
+                style={{
+                  fontSize: '0.82rem',
+                  color: 'var(--text-muted)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  cursor: isDemoMode ? 'default' : 'pointer',
+                }}
+              >
+                {displayNameShown || 'Instructor'}
+                {!isDemoMode && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.6 }}>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                )}
+              </span>
+            )}
             {isDemoMode && (
               <span id="demo-badge" style={{ display: 'inline-flex', fontSize: '0.72rem', fontWeight: 500, padding: '2px 10px', borderRadius: 20, background: '#fff3e0', color: '#e65100' }}>
                 Demo mode
@@ -445,7 +632,7 @@ function DashboardInner() {
                 {activeSessionCode}
               </span>
             )}
-            <button className="top-btn" onClick={logout}>Sign out</button>
+            <button className="top-btn" onClick={handleSignOut}>Sign out</button>
           </div>
         </div>
 

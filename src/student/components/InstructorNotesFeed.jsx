@@ -48,9 +48,12 @@ function NoteCard({ note: n }) {
   const urlsHttpOnly = urlsAll.filter((u) => /^http:\/\//i.test(u) && !isHttpsUrl(u));
 
   const rawLinks = Array.isArray(n.links) ? n.links : [];
-  const linkUrls = rawLinks
-    .map((l) => String((l && (l.url || l.href)) || '').trim())
-    .filter((u) => /^https?:\/\//i.test(u));
+  const links = rawLinks
+    .map((l) => ({
+      url: String((l && (l.url || l.href)) || '').trim(),
+      label: String((l && (l.label || l.name)) || '').trim(),
+    }))
+    .filter((l) => /^https?:\/\//i.test(l.url));
 
   return (
     <div className="session-note-card">
@@ -90,33 +93,40 @@ function NoteCard({ note: n }) {
         </div>
       )}
 
-      {linkUrls.length > 0 && (
-        <ul className="session-note-links-plain">
-          {linkUrls.map((url) => {
-            let display = url;
+      {links.length > 0 && (
+        <div className="session-note-links">
+          {links.map((link, i) => {
+            let host = link.url;
             try {
-              const parsed = new URL(url);
-              display = parsed.hostname + parsed.pathname.replace(/\/$/, '');
+              const parsed = new URL(link.url);
+              host = parsed.hostname + parsed.pathname.replace(/\/$/, '');
             } catch (e) {}
-            if (display.length > 72) display = display.slice(0, 69) + '...';
+            if (host.length > 72) host = host.slice(0, 69) + '...';
+            // Prefer the instructor-provided button label; fall back to the host.
+            const text = link.label || host;
 
-            if (/^https:\/\//i.test(url)) {
+            if (/^https:\/\//i.test(link.url)) {
               return (
-                <li key={url}>
-                  <a href={url} target="_blank" rel="noopener noreferrer">
-                    {display}
-                  </a>
-                </li>
+                <a
+                  key={i}
+                  className="session-note-link-btn"
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={link.url}
+                >
+                  {text}
+                </a>
               );
             }
             return (
-              <li key={url} className="session-note-link-http">
-                {display}{' '}
-                <span className="session-note-link-http-hint">(use https for a clickable link)</span>
-              </li>
+              <span key={i} className="session-note-link-btn session-note-link-btn--http" title={link.url}>
+                {text}{' '}
+                <span className="session-note-link-http-hint">(needs https)</span>
+              </span>
             );
           })}
-        </ul>
+        </div>
       )}
     </div>
   );

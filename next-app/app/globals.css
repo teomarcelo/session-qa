@@ -1,0 +1,30 @@
+/* Shared design tokens — matches existing Vite app variables */
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface2: #f0ede8;
+  --border: #e2ddd6;
+  --text: #1a1814;
+  --text-muted: #7a7570;
+  --text-light: #b0aba4;
+  --accent: #0070d2;
+  --accent-light: #e8f2fc;
+  --accent-hover: #005fb2;
+  --success: #2e7d32;
+  --success-light: #e8f5e9;
+  --warn: #e65100;
+  --warn-light: #fff3e0;
+  --danger: #c62828;
+  --danger-light: #ffebee;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}

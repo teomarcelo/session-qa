@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import { emojiSearchText } from '../../lib/emojiData.js';
 
 // ── Emoji data ─────────────────────────────────────────────────
 const FORMAT_EMOJI_PICKER_RAW = "😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠💩🤡👹👺👻👽👾🤖😺😸😹😻😼😽🙀😿😾👋🤚🖐✋🖖👌🤌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🫀🫁🦷🦴👀👁👅👄❤🧡💛💚💙💜🖤🤍🤎💔❣💕💞💓💗💖💘💝💟☮✝☪🕉☸✡🔯🪄🪅🎴🎭🖼🎨🔮🧿🐵🐒🦍🦧🐶🐕🦮🐩🐺🦊🦝🐱🐈🦁🐯🐅🐆🐴🐎🦄🦓🦌🦬🐮🐂🐃🐄🐷🐖🐗🐽🐏🐑🐐🐪🐫🦙🦒🐘🦣🦏🦛🐭🐁🐀🐹🐰🐇🐿🦫🦔🦇🐻🐨🐼🐾🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦤🪶🦩🦚🦜🐸🐊🐢🦎🐍🐲🐉🦕🦖🐳🐋🐬🦭🐟🐠🐡🦈🐙🐚🪸🐌🦋🐛🐜🐝🪲🐞🦗🪳🕷🕸🦂🦟🪰🪱🦠💐🌸💮🌹🥀🌺🌻🌼🌷🪻🌱🪴🌲🌳🌴🌵🌾🌿☘🍀🍁🍂🍃🪹🪺🍄🍇🍈🍉🍊🍋🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🥥🥑🍆🥔🥕🌽🌶🫑🥒🥬🥦🧄🧅🥜🫘🌰🍞🥐🥖🫓🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🫔🥙🧆🥚🍳🥘🍲🫕🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🦪🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🥤🧋🧃🧉🧊🥢🍽🍴🥄🔪🫙🌍🌎🌏🌐🗺🧭🏔⛰🌋🗻🏕🏖🏜🏝🏞🏟🏛🏗🧱🪨🪵🛖🏘🏚🏠🏡🏢🏣🏤🏥🏦🏨🏩🏪🏫🏬🏭🏯🏰💒🗼🗽⛪🕌🛕🕍⛩🕋⛲⛺🌁🌃🌄🌅🌆🌇🌉♨🎠🛝🎡🎢💈🎪🚂🚃🚄🚅🚆🚇🚈🚉🚊🚝🚞🚋🚌🚍🚎🚐🚑🚒🚓🚔🚕🚖🚗🚘🚙🛻🚚🚛🚜🏎🏍🛵🦽🦼🛺🚲🛴🛹🛼🚏🛣🛤⛽🚨🚥🚦🛑🚧⚓🛟⛵🛶🚤🛳⛴🛥🚢✈🛩🛫🛬🪂💺🚁🚟🚠🚡🛰🚀🛸🪐🌠🌌⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🪀🏓🏸🏒🏑🥍🏏🪃🥅⛳🪁🏹🎣🤿🥊🥋🎽🛷⛸🥌🎿⛷🏂🏋🤼🤸🤺⛹🤹🧘🏌🏇🧗🚵🚴🏆🥇🥈🥉🏅🎖🏵🎗🎫🎟🩰🎬🎤🎧🎼🎹🥁🪘🎷🎺🎸🪕🎻🪈🎲♟🎯🎳🎮🕹🎰🧩📱📲☎📞📟📠🔋🪫🔌💻🖥🖨⌨🖱🖲💽💾💿📀🧮🎥🎞📽📺📷📸📹📼🔍🔎🕯💡🔦🏮🪔📔📕📖📗📘📙📚📓📒📃📜📄📰🗞📑🔖🏷💰🪙💴💵💶💷💸💳🧾✉📧📨📩📤📥📦📫📪📬📭📮🗳✏✒🖋🖊🖌🖍📝💼📁📂🗂📅📆🗒🗓📇📈📉📊📋📌📍📎🖇📏📐✂🗃🗄🗑🔒🔓🔏🔐🔑🗝🔨🪓⛏⚒🛠🗡⚔🔫🛡🔧🪛🔩⚙🗜⚖🦯🔗⛓🪝🧰🧲🪜💯💢💥💫💦💨🕳💬🗨🗯💭💤🔔🔕📣📢📿🏧🚮🚰♿🚹🚺🚻🚼🚾🛂🛃🛄🛅⚠🚸⛔🚫🚳🚭🚯🚱🚷📵🔞☢☣⬆↗➡↘⬇↙⬅↖↕↔↩↪⤴⤵🔃🔄🔙🔚🔛🔜🔝🛐⚛☯🕎♈♉♊♋♌♍♎♏♐♑♒♓⛎🔀🔁🔂▶⏩⏭⏯◀⏪⏮🔼⏫🔽⏬⏸⏹⏺⏏🎦🔅🔆📶📳📴♀♂⚧✖➕➖➗🟰♾‼⁉❓❔❕❗〰💱💲⚕♻❇✳❎🆎🆑🆘📛🔠🔡🔢🔣🔤⌚⏰⏱⏲🕰🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕡🕖🕢🕗🕣🕘🕤🕙🕥🕚🕦🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝🌞⭐🌟☀🌤⛅🌥☁🌦🌧⛈🌩🌨❄☃⛄🌬🌪🌫🌈☂☔⛱⚡🔥💧🌊🎃🎄🎆🎇🧨✨🎈🎉🎊🎋🎍🎎🎏🎐🎑🧧🎀🎁🧸🪆🃏🀄";
@@ -88,6 +89,15 @@ export function insertSlackFormat(textareaId, mode) {
   ta.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+export function clearTextarea(textareaId) {
+  const ta = document.getElementById(textareaId);
+  if (!ta) return;
+  setNativeValue(ta, '');
+  ta.focus();
+  // Fire React onChange so the store/component state clears too.
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 export function insertEmoji(textareaId, ch) {
   const ta = document.getElementById(textareaId);
   if (!ta || ch == null) return;
@@ -113,7 +123,7 @@ function EmojiPickerGrid({ targetId, detailsRef }) {
     const grid = gridRef.current;
     if (!grid) return;
     grid.innerHTML = FORMAT_EMOJI_PICKER_CHARS.map(ch =>
-      `<button type="button" class="fmt-btn fmt-emoji fmt-emoji-picker-cell" style="${FMT_EMOJI_PICKER_INLINE_STYLE}" data-emoji-target="${escAttr(targetId)}" data-ch="${escAttr(ch)}" title="Insert" aria-label="Insert emoji"><span class="fmt-emoji-char">${ch}</span></button>`
+      `<button type="button" class="fmt-btn fmt-emoji fmt-emoji-picker-cell" style="${FMT_EMOJI_PICKER_INLINE_STYLE}" data-emoji-target="${escAttr(targetId)}" data-ch="${escAttr(ch)}" data-search="${escAttr(emojiSearchText(ch))}" title="Insert" aria-label="Insert emoji"><span class="fmt-emoji-char">${ch}</span></button>`
     ).join('');
 
     // Ensure shell wrapper exists
@@ -148,6 +158,12 @@ function ensureShell(grid, details) {
   }
   const shell = document.createElement('div');
   shell.className = 'fmt-emoji-grid-shell';
+  // Search field (keyword filter over the grid cells).
+  const search = document.createElement('div');
+  search.className = 'fmt-emoji-search';
+  search.innerHTML =
+    '<svg class="fmt-emoji-search-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>' +
+    '<input type="text" class="fmt-emoji-search-input" placeholder="Search emoji…" aria-label="Search emoji" autocomplete="off" spellcheck="false" />';
   const top = document.createElement('div');
   top.className = 'fmt-emoji-scroll-hint fmt-emoji-scroll-hint--top is-hidden';
   top.setAttribute('aria-hidden', 'true');
@@ -156,10 +172,15 @@ function ensureShell(grid, details) {
   bot.className = 'fmt-emoji-scroll-hint fmt-emoji-scroll-hint--bottom is-hidden';
   bot.setAttribute('aria-hidden', 'true');
   bot.textContent = '▼';
+  const empty = document.createElement('div');
+  empty.className = 'fmt-emoji-empty is-hidden';
+  empty.textContent = 'No emoji match';
   const parent = grid.parentNode;
   parent.insertBefore(shell, grid);
+  shell.appendChild(search);
   shell.appendChild(top);
   shell.appendChild(grid);
+  shell.appendChild(empty);
   shell.appendChild(bot);
   if (details) {
     details._fmtEmojiShell = shell;
@@ -179,6 +200,12 @@ export default function FormatToolbar({ textareaId, compact = true }) {
     if (!container) return;
 
     const onClick = (e) => {
+      const clearBtn = e.target.closest('.fmt-btn[data-fmt-clear]');
+      if (clearBtn) {
+        e.preventDefault();
+        clearTextarea(textareaId);
+        return;
+      }
       const fmtBtn = e.target.closest('.fmt-btn[data-fmt]');
       const emBtn = e.target.closest('.fmt-btn[data-emoji]');
       if (!fmtBtn && !emBtn) return;
@@ -212,13 +239,13 @@ export default function FormatToolbar({ textareaId, compact = true }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
         <span className="fmt-sep" aria-hidden="true"></span>
-        <button type="button" className="fmt-btn fmt-emoji" data-emoji="👍" title="Thumbs up">👍</button>
-        <button type="button" className="fmt-btn fmt-emoji" data-emoji="✅" title="Check">✅</button>
-        <button type="button" className="fmt-btn fmt-emoji" data-emoji="💡" title="Idea">💡</button>
         <details ref={detailsRef} className="fmt-emoji-more">
           <summary className="fmt-more-summary" title="More emojis — opens below or above to fit (Unicode)">⋯</summary>
           <EmojiPickerGrid targetId={textareaId} detailsRef={detailsRef} />
         </details>
+        <button type="button" className="fmt-btn fmt-btn-clear" data-fmt-clear="1" style={{ marginLeft: 'auto' }} title="Clear the text box" aria-label="Clear the text box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
       </div>
     </div>
   );

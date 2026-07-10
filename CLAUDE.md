@@ -10,6 +10,9 @@ and ongoing Salesforce training sessions.
 - NEVER push to GitHub or deploy without Teo explicitly saying "push" or "deploy."
 - Build and test locally only until instructed otherwise.
 - Do not modify firestore.rules or storage-cors.json without confirming first.
+- firestore.rules changes are NOT live until reviewed and deployed with
+  `firebase deploy --only firestore:rules`. Editing the file locally never
+  affects production on its own.
 - Do not migrate Firebase compat SDK to modular — keep existing SDK as-is.
 - Always run `npm run dev` to test — never assume changes work without verifying locally.
 
