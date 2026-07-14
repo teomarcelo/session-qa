@@ -17,6 +17,7 @@ export default function SessionFeedbackList() {
   const { db } = useFirebase();
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
   const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
+  const demoFeedback = useInstructorStore(s => s.demoFeedback);
 
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
@@ -87,8 +88,32 @@ export default function SessionFeedbackList() {
     };
   }, [activeSessionCode, isDemoMode, db]);
 
+  // Demo mode: render the in-memory seeded feedback (nothing hits Firestore).
+  // New entries submitted from the demo student view are prepended to this list.
   if (isDemoMode) {
-    return <p className="instr-feedback-empty">Feedback is not stored in demo mode.</p>;
+    const demoRows = [...(demoFeedback || [])].sort(
+      (a, b) => (b.submittedAtMs || 0) - (a.submittedAtMs || 0),
+    );
+    if (!demoRows.length) {
+      return <p className="instr-feedback-empty">No dashboard feedback for this session yet.</p>;
+    }
+    return (
+      <div className="instr-feedback-list-wrap" aria-live="polite">
+        {demoRows.map(r => (
+          <article key={r.id} className="instr-feedback-card">
+            <div className="instr-feedback-card-head">
+              <strong>{r.subject || ''}</strong>
+              <span className="instr-feedback-when">{formatFeedbackWhen(r.submittedAtMs)}</span>
+            </div>
+            <div className="instr-feedback-body">
+              {String(r.body || '').split('\n').map((line, i, arr) => (
+                <span key={i}>{line}{i < arr.length - 1 ? <br/> : null}</span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    );
   }
 
   if (error) {

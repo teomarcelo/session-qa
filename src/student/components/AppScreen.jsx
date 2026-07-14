@@ -15,6 +15,7 @@ import { isStudentInstructorNotesDashboardEnabled } from '../../lib/sessionNotes
 import { myQsKey } from '../hooks/useStudentSession.js';
 import { copyRichCodeBlock as runCopyRichCodeBlock } from '../../lib/richText.js';
 import { studentSessionDisplayTitle } from './SessionInfo.jsx';
+import ImageLightbox from '../../shared/ImageLightbox.jsx';
 
 /**
  * AppScreen — the main Q&A interface shown after joining a session.
@@ -384,6 +385,9 @@ export default function AppScreen({
       <div className={`toast${toast ? ' show' : ''}`} id="toast">
         {toast}
       </div>
+
+      {/* Attached-image viewer (intercepts plain clicks on attachment images) */}
+      <ImageLightbox />
     </div>
   );
 }

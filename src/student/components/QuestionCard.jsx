@@ -99,7 +99,7 @@ export default function QuestionCard({ question: q, userId, sessionCode, isLocke
       {imageUrls.length > 0 && (
         <div className="q-attached-images">
           {imageUrls.map((u) => (
-            <a key={u} href={u} target="_blank" rel="noopener noreferrer">
+            <a key={u} className="attachment-img-link" href={u} target="_blank" rel="noopener noreferrer">
               <img src={u} alt="" loading="lazy" referrerPolicy="no-referrer" />
             </a>
           ))}
@@ -123,7 +123,7 @@ export default function QuestionCard({ question: q, userId, sessionCode, isLocke
             {ansImgUrls.length > 0 && (
               <div className="q-attached-images">
                 {ansImgUrls.map((u) => (
-                  <a key={u} href={u} target="_blank" rel="noopener noreferrer">
+                  <a key={u} className="attachment-img-link" href={u} target="_blank" rel="noopener noreferrer">
                     <img src={u} alt="" loading="lazy" referrerPolicy="no-referrer" />
                   </a>
                 ))}

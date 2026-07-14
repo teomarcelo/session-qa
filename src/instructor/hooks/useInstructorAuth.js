@@ -3,7 +3,7 @@ import firebase from '../../lib/firebaseCompat.js';
 import { INSTRUCTOR_PIN_PEPPER } from '../../constants/auth.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import { currentUser as firebaseCurrentUser, signOutInstructor } from '../../lib/auth.js';
-import useInstructorStore, { DEMO_SESSION_CODE, DEMO_SESSION, DEMO_QUESTIONS_TEMPLATE } from '../store/useInstructorStore.js';
+import useInstructorStore, { DEMO_SESSION_CODE, DEMO_SESSION, DEMO_QUESTIONS_TEMPLATE, DEMO_INSTRUCTOR_NAME, DEMO_INSTRUCTOR_OWNER_ID } from '../store/useInstructorStore.js';
 
 // Storage key constants
 const INSTR_ACTIVE_SESSION_KEY = 'sqa_instructor_active_session';
@@ -316,6 +316,22 @@ export function getDemoHiddenSessionIds() {
   } catch (e) { return []; }
 }
 
+/**
+ * Restore fresh demo data + demo UI state. The single source of truth for BOTH
+ * Reset Demo buttons (instructor top bar and the student-view overlay) so they
+ * can never drift. Everything here is in-memory / sessionStorage only — no
+ * Firestore writes ever happen in demo mode.
+ */
+export function resetDemoData() {
+  // Un-hide the demo session so it reappears in the list.
+  try { sessionStorage.removeItem(DEMO_SESSIONS_HIDDEN_KEY); } catch (e) {}
+  // Re-seed session + questions + feedback and reset filters/sort/search/drafts
+  // and bump the remount nonce for the overlay's local state.
+  useInstructorStore.getState().resetDemoState();
+  persistInstructorActiveSession(DEMO_SESSION_CODE);
+  useInstructorStore.getState().showToast('Demo data reset!');
+}
+
 export function useInstructorAuth() {
   const { db } = useFirebase();
 
@@ -418,10 +434,12 @@ export function useInstructorAuth() {
   }, []);
 
   const enterDemo = useCallback(() => {
-    useInstructorStore.getState().setCurrentInstructor('Alex Rivera (Demo)');
-    useInstructorStore.getState().setInstructorIdentity({ ownerId: nameToId('Alex Rivera (Demo)') });
+    // Identity matches DEMO_SESSION.ownerId so the instructor "owns" the demo
+    // session (Lead chip renders, per-session rename works, all in-memory).
+    useInstructorStore.getState().setCurrentInstructor(DEMO_INSTRUCTOR_NAME);
+    useInstructorStore.getState().setInstructorIdentity({ ownerId: DEMO_INSTRUCTOR_OWNER_ID });
     useInstructorStore.getState().setIsDemoMode(true);
-    writeInstructorNameToStorage('Alex Rivera (Demo)');
+    writeInstructorNameToStorage(DEMO_INSTRUCTOR_NAME);
     writeIsDemoToStorage('true');
   }, []);
 

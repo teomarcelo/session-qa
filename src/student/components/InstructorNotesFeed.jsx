@@ -78,7 +78,7 @@ function NoteCard({ note: n }) {
       {(urls.length > 0 || urlsHttpOnly.length > 0) && (
         <div className="session-note-images">
           {urls.map((u) => (
-            <a key={u} href={u} target="_blank" rel="noopener noreferrer">
+            <a key={u} className="attachment-img-link" href={u} target="_blank" rel="noopener noreferrer">
               <img src={u} alt="" loading="lazy" referrerPolicy="no-referrer" />
             </a>
           ))}

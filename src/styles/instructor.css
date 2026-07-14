@@ -1525,3 +1525,66 @@
   .save-row .save-status-btn {
     margin-top: 0;
   }
+
+  /* ── Attached-image lightbox ──────────────────────────────────
+   * Plain left-clicks on an attached image open it here (see
+   * src/shared/ImageLightbox.jsx). cmd/ctrl/shift/middle-click still
+   * open the image in a new tab via the underlying anchor. Kept in sync
+   * with the same block in student.css (separate stylesheet bundles). */
+  a.attachment-img-link { cursor: zoom-in; }
+  .img-lightbox-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 12050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+    background: rgba(0, 0, 0, 0.8);
+    cursor: zoom-out;
+    animation: imgLightboxFade 0.15s ease-out;
+  }
+  .img-lightbox-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    display: block;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    cursor: default;
+    animation: imgLightboxZoom 0.15s ease-out;
+  }
+  .img-lightbox-close {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .img-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+  .img-lightbox-close:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+  @keyframes imgLightboxFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes imgLightboxZoom {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }

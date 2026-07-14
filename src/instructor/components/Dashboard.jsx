@@ -12,8 +12,8 @@
 import { Component, useEffect, useRef, useState } from 'react';
 import { IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY } from '../../constants/app.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
-import useInstructorStore, { DEMO_SESSION, DEMO_SESSION_CODE, DEMO_QUESTIONS_TEMPLATE } from '../store/useInstructorStore.js';
-import { useInstructorAuth, persistInstructorActiveSession, getDemoHiddenSessionIds, DEMO_SESSIONS_HIDDEN_KEY, myNameForSession, instructorOwnsSession } from '../hooks/useInstructorAuth.js';
+import useInstructorStore from '../store/useInstructorStore.js';
+import { useInstructorAuth, resetDemoData, myNameForSession, instructorOwnsSession } from '../hooks/useInstructorAuth.js';
 import { useSessionStats } from '../hooks/useSessionStats.js';
 import { getSessionNotesFromDoc } from '../../lib/sessionNotes.js';
 import { extractImageUrlForQuestionPaste } from '../../lib/clipboardImagePaste.js';
@@ -24,6 +24,7 @@ import StudentViewOverlay from './StudentViewOverlay.jsx';
 import JoinSessionModal from './JoinSessionModal.jsx';
 import CreateSessionModal from './CreateSessionModal.jsx';
 import DeleteModal from './DeleteModal.jsx';
+import ImageLightbox from '../../shared/ImageLightbox.jsx';
 
 // ── Emoji picker layout (vanilla JS) ──────────────────────────
 function initEmojiPickerLayout() {
@@ -453,24 +454,9 @@ function DashboardInner() {
     return () => cancelPending();
   }, [questionPages, activeSessionCode]);
 
-  // Handle reset demo
-  const handleResetDemo = () => {
-    try {
-      sessionStorage.removeItem(DEMO_SESSIONS_HIDDEN_KEY);
-    } catch (e) {}
-    const qs = DEMO_QUESTIONS_TEMPLATE.map(q => ({ ...q, voters: [...q.voters] }));
-    useInstructorStore.setState({
-      questionPages: [{ questions: qs, endSnap: null }],
-      currentPage: 0,
-      allQuestions: qs,
-      instructorOlderBeyondLoadExhausted: true,
-      allSessions: [DEMO_SESSION],
-      activeSessionCode: DEMO_SESSION_CODE,
-      searchQuery: '',
-    });
-    persistInstructorActiveSession(DEMO_SESSION_CODE);
-    showToast('Demo data reset!');
-  };
+  // Handle reset demo — delegates to the shared helper used by both Reset Demo
+  // buttons (top bar here + the student-view overlay) so they never drift.
+  const handleResetDemo = () => resetDemoData();
 
   const copyCode = () => {
     if (!activeSessionCode) return;
@@ -565,28 +551,24 @@ function DashboardInner() {
             ) : (
               <span
                 id="instructor-name-bar"
-                onClick={isDemoMode ? undefined : startEditName}
-                title={isDemoMode
-                  ? undefined
-                  : (nameIsSessionScoped
-                    ? 'Click to change the name students see in this session'
-                    : 'Click to change your default name (used for new sessions)')}
+                onClick={startEditName}
+                title={nameIsSessionScoped
+                  ? 'Click to change the name students see in this session'
+                  : 'Click to change your default name (used for new sessions)'}
                 style={{
                   fontSize: '0.82rem',
                   color: 'var(--text-muted)',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.3rem',
-                  cursor: isDemoMode ? 'default' : 'pointer',
+                  cursor: 'pointer',
                 }}
               >
                 {displayNameShown || 'Instructor'}
-                {!isDemoMode && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.6 }}>
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
-                )}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.6 }}>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
               </span>
             )}
             {isDemoMode && (
@@ -661,6 +643,9 @@ function DashboardInner() {
       <JoinSessionModal />
       <CreateSessionModal />
       <DeleteModal />
+
+      {/* Attached-image viewer (works over the dashboard and the student-view overlay) */}
+      <ImageLightbox />
 
       {/* Toast — always rendered so the CSS slide-up transition fires */}
       <div className={`toast${toast.visible ? ' show' : ''}`} role="status" aria-live="polite">
