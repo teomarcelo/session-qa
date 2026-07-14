@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
+import { ensureAnonymousStudent } from '../../lib/auth.js';
 
 /**
  * Dashboard feedback modal — anonymous, no reply path, no student email collected.
@@ -37,6 +38,9 @@ export default function FeedbackModal({ sessionCode, onClose, showToast }) {
       return;
     }
 
+    // Payload shape is intentionally exactly {subject, body, submittedAtMs} to
+    // satisfy the strict feedback rule (size()==3). Do NOT add fields here; the
+    // anonymous auth below attaches identity via the request token, not the doc.
     const payload = {
       subject: sub.slice(0, 500),
       body: msg.slice(0, 12000),
@@ -44,6 +48,9 @@ export default function FeedbackModal({ sessionCode, onClose, showToast }) {
     };
 
     try {
+      // Ensure the anonymous identity so the write carries a Firebase token
+      // (required once rules enforce request.auth != null).
+      await ensureAnonymousStudent();
       await db.collection('sessions').doc(sessionCode).collection('sessionFeedback').add(payload);
       onClose();
       showToast('Thanks — your feedback was sent.');

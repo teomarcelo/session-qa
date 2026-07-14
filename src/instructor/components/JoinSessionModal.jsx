@@ -11,6 +11,7 @@ import {
   JOIN_CODE_ROW_LEGACY_TDX_CLASS,
 } from '../../lib/sessionCode.js';
 import { nameToId } from '../hooks/useInstructorAuth.js';
+import { ensureInstructorAuth } from '../../lib/auth.js';
 import SaveButton from './SaveButton.jsx';
 
 export default function JoinSessionModal() {
@@ -53,6 +54,13 @@ export default function JoinSessionModal() {
         return false;
       }
     }
+    // Joining registers the instructor as a co-instructor (session update +
+    // instructor doc write), all of which require a verified salesforce.com user
+    // in the rules. Await auth before touching Firestore.
+    if (!(await ensureInstructorAuth())) {
+      setError('Sign in with your salesforce.com Google account to join a session.');
+      return false;
+    }
     try {
       const doc = await db.collection('sessions').doc(code).get();
       if (!doc.exists) { setError('Session not found. Check the code.'); return false; }
@@ -74,20 +82,28 @@ export default function JoinSessionModal() {
       });
 
       // Co-instructors are automatic: register the joiner on the session roster so
-      // students (and the lead) see who's teaching. Identity is already verified via
-      // the Google gateway, so we just record their display name.
+      // students (and the lead) see who's teaching. Identity is verified via
+      // Firebase Auth (Google), so we record the display name AND append the
+      // verified email to instructorEmails so the rules authorize their writes.
       const data = doc.data() || {};
       const roster = Array.isArray(data.instructors)
         ? data.instructors.map(n => String(n || '').trim()).filter(Boolean)
         : String(data.instructorNames || '').split(',').map(n => n.trim()).filter(Boolean);
       const myName = (currentInstructor || '').trim();
+      const myEmail = (useInstructorStore.getState().instructorEmail || '').trim().toLowerCase();
       let nextRoster = roster;
+      const rosterUpdate = {};
       if (myName && !roster.includes(myName)) {
         nextRoster = [...roster, myName];
-        db.collection('sessions').doc(code).update({
-          instructors: nextRoster,
-          instructorNames: nextRoster.join(', '),
-        }).catch(() => {});
+        rosterUpdate.instructors = nextRoster;
+        rosterUpdate.instructorNames = nextRoster.join(', ');
+      }
+      // Add the joiner's email to the co-instructor allow-list (rules use this).
+      if (myEmail) {
+        rosterUpdate.instructorEmails = firebase.firestore.FieldValue.arrayUnion(myEmail);
+      }
+      if (Object.keys(rosterUpdate).length) {
+        db.collection('sessions').doc(code).update(rosterUpdate).catch(() => {});
       }
       const sessionData = { id: code, ...data, instructors: nextRoster, instructorNames: nextRoster.join(', ') };
       const latestSessions = useInstructorStore.getState().allSessions;

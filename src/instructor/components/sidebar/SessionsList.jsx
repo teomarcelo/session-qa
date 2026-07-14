@@ -1,5 +1,7 @@
+import { useState, useRef } from 'react';
 import useInstructorStore from '../../store/useInstructorStore.js';
 import { useSessions } from '../../hooks/useSessions.js';
+import { persistInstructorActiveSession } from '../../hooks/useInstructorAuth.js';
 
 export default function SessionsList() {
   const allSessions = useInstructorStore(s => s.allSessions);
@@ -11,14 +13,30 @@ export default function SessionsList() {
   const showToast = useInstructorStore(s => s.showToast);
   const { hideSession } = useSessions();
 
+  // Tracks which session is in the "Sure?" confirm state.
+  const [confirmCode, setConfirmCode] = useState(null);
+  const confirmTimerRef = useRef(null);
+
   const handleSelectSession = (code) => {
     setActiveSessionCode(code);
+    persistInstructorActiveSession(code);
   };
 
   const handleHideSession = (e, code) => {
     e.preventDefault();
     e.stopPropagation();
-    hideSession(code);
+
+    if (confirmCode === code) {
+      // Second click — confirmed.
+      clearTimeout(confirmTimerRef.current);
+      setConfirmCode(null);
+      hideSession(code);
+    } else {
+      // First click — enter confirm state, auto-cancel after 3s.
+      clearTimeout(confirmTimerRef.current);
+      setConfirmCode(code);
+      confirmTimerRef.current = setTimeout(() => setConfirmCode(null), 3000);
+    }
   };
 
   const handleJoin = () => {
@@ -81,12 +99,12 @@ export default function SessionsList() {
                 </button>
                 <button
                   type="button"
-                  className="session-hide-btn"
+                  className={`session-hide-btn${confirmCode === s.id ? ' session-hide-btn--confirm' : ''}`}
                   onClick={(e) => handleHideSession(e, s.id)}
-                  title="Hide from your list"
+                  title={confirmCode === s.id ? 'Click again to hide. You\'ll need the session code to rejoin.' : 'Hide from your list'}
                   aria-label="Hide session from list"
                 >
-                  ✕
+                  {confirmCode === s.id ? 'Sure?' : '✕'}
                 </button>
               </div>
             );

@@ -7,6 +7,7 @@ import { formatRichMessage, isHttpsUrl, copyRichCodeBlock, esc } from '../../lib
 import { htmlAnsweredStatusBadges } from '../../lib/answeredBadge.js';
 import { formatQuestionWhen } from '../../lib/formatQuestionWhen.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
+import { ensureInstructorAuth } from '../../lib/auth.js';
 import useInstructorStore from '../store/useInstructorStore.js';
 import { myNameForSession } from '../hooks/useInstructorAuth.js';
 import AnswerBox from './AnswerBox.jsx';
@@ -52,6 +53,19 @@ export default function QuestionCard({ q, showToast }) {
   const updateQuestionInPages = useInstructorStore(s => s.updateQuestionInPages);
   const _showToast = useInstructorStore(s => s.showToast);
   const toast = showToast || _showToast;
+
+  // Privileged question edits (answer / pin / status / delete) require a verified
+  // salesforce.com Firebase user as currentUser or the rules reject them with
+  // "Missing or insufficient permissions". Await auth and confirm before writing,
+  // so a pre-auth render or an anonymous session on this origin can't slip through.
+  const requireInstructorAuth = async () => {
+    const user = await ensureInstructorAuth();
+    if (!user) {
+      toast('Sign in with your salesforce.com Google account to make changes.');
+      return false;
+    }
+    return true;
+  };
 
   const answerDraft = useInstructorStore(s => s.answerDrafts[q.id] ?? '');
   const pendingImages = useInstructorStore(s => s.pendingAnswerImages[q.id] ?? EMPTY_ARR);
@@ -137,6 +151,7 @@ export default function QuestionCard({ q, showToast }) {
     }
 
     if (!db) { toast('Firebase not available.'); return false; }
+    if (!(await requireInstructorAuth())) return false;
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update({
         answers: updatedAnswers,
@@ -181,6 +196,7 @@ export default function QuestionCard({ q, showToast }) {
     const patch = { answers: updatedAnswers, answer: '', status };
     if (status === 'pending') patch.answeredVerbally = false;
     if (!db) { toast('Firebase not available.'); return; }
+    if (!(await requireInstructorAuth())) return;
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update(patch);
       toast('Answer removed.');
@@ -197,6 +213,7 @@ export default function QuestionCard({ q, showToast }) {
       return true;
     }
     if (!db) { toast('Firebase not available.'); return false; }
+    if (!(await requireInstructorAuth())) return false;
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update({ pinned: !q.pinned });
       toast(q.pinned ? 'Unpinned.' : 'Question pinned!');
@@ -222,6 +239,7 @@ export default function QuestionCard({ q, showToast }) {
       ? { status, answeredVerbally: true }
       : { status, answeredVerbally: false };
     if (!db) { toast('Firebase not available.'); return false; }
+    if (!(await requireInstructorAuth())) return false;
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(q.id).update(patch);
       toast(status === 'answered' ? 'Marked as answered verbally.' : 'Marked as pending.');

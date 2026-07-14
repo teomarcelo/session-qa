@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import firebase from '../../lib/firebaseCompat.js';
 import { INSTRUCTOR_PIN_PEPPER } from '../../constants/auth.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
+import { currentUser as firebaseCurrentUser, signOutInstructor } from '../../lib/auth.js';
 import useInstructorStore, { DEMO_SESSION_CODE, DEMO_SESSION, DEMO_QUESTIONS_TEMPLATE } from '../store/useInstructorStore.js';
 
 // Storage key constants
@@ -342,14 +343,20 @@ export function useInstructorAuth() {
     return 'Instructor self-signup is temporarily disabled. Contact the workshop admin to provision your account.';
   }, [db]);
 
-  // Passwordless sign-in used after Google OAuth. Access is already restricted to
-  // @salesforce.com by the Next.js gateway. Identity (which sessions you own) is
-  // pinned to the verified email; `name` is only the editable display name.
-  const continueAs = useCallback(async (name, email) => {
+  // Establish the instructor identity by display name. The email is taken from
+  // the *verified Firebase user* (never from a caller-supplied / URL value), so
+  // ownership stays pinned to the Google account when signed in and falls back
+  // to a name-based id for local/demo access. `name` is only the display name.
+  const continueAs = useCallback(async (name) => {
     const trimmed = (name || '').trim();
     if (!trimmed) return 'Please enter the name you want to go by.';
+    // Read the verified email straight from Firebase Auth, if present.
+    const user = firebaseCurrentUser();
+    const email = user && !user.isAnonymous && user.emailVerified && user.email
+      ? String(user.email).toLowerCase()
+      : null;
     const { ownerId, legacyOwnerId } = resolveInstructorIds({ email, name: trimmed });
-    useInstructorStore.getState().setInstructorIdentity({ ownerId, legacyOwnerId, email: email || null });
+    useInstructorStore.getState().setInstructorIdentity({ ownerId, legacyOwnerId, email });
     useInstructorStore.getState().setCurrentInstructor(trimmed);
     writeInstructorNameToStorage(trimmed);
     writeDisplayNameOverride(ownerId, trimmed);
@@ -401,6 +408,9 @@ export function useInstructorAuth() {
   }, [db]);
 
   const logout = useCallback(() => {
+    // End the Firebase session so onAuthStateChanged reports null (fire-and-forget;
+    // the local reset below runs immediately regardless of network).
+    signOutInstructor();
     clearInstructorBrowserSessionKeys();
     persistInstructorActiveSession(null);
     setInstructorOnboardingWelcomeFlag();

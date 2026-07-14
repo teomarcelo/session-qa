@@ -3,6 +3,7 @@ import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import {
   normalizeSessionCodeFromJoinInput,
 } from '../../lib/sessionCode.js';
+import { ensureAnonymousStudent } from '../../lib/auth.js';
 
 const LS_STUDENT_UID = 'sqa_student_uid';
 const LS_STUDENT_UID_LEGACY = 'tdx_student_uid';
@@ -124,6 +125,11 @@ export function useStudentSession() {
       return;
     }
 
+    // Start silent anonymous auth as early as possible so a stable uid is ready
+    // before the student's first write (question / upvote / feedback). Fire and
+    // forget: reads don't need it and it degrades gracefully if unavailable.
+    ensureAnonymousStudent();
+
     // URL param ?code=SQA-XXXX takes priority over localStorage (used by instructor preview iframe)
     let urlCode = null;
     try {
@@ -210,6 +216,8 @@ export function useStudentSession() {
       safeLsSet(LS_NAME, nm);
       safeLsRemove(LS_NAME_LEGACY);
     }
+    // Ensure the anonymous identity exists before the student can post/upvote.
+    ensureAnonymousStudent();
     setJoining(true);
     setJoinError('');
     try {

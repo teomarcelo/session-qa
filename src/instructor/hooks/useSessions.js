@@ -154,7 +154,7 @@ export function useSessions() {
           persistInstructorActiveSession(null);
         }
       }
-      useInstructorStore.getState().showToast('Removed from your list. Join with the code again to restore it.');
+      useInstructorStore.getState().showToast('Session hidden. Rejoin with the code anytime.');
     };
 
     if (state.isDemoMode) {

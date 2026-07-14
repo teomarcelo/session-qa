@@ -71,8 +71,10 @@ export default function QuestionsList() {
     questionPages.forEach(p => { (p.questions || []).forEach(q => m.set(q.id, q)); });
     const corpus = Array.from(m.values());
 
-    let qs = searchQuery
-      ? filterCorpusByFuseSearch(corpus, searchQuery, getSearchHaystack)
+    // Use the full cross-page cache when searching or sorting by votes so that
+    // highly-voted older questions bubble up above newer lower-voted ones.
+    let qs = (searchQuery || currentSort === 'votes')
+      ? (searchQuery ? filterCorpusByFuseSearch(corpus, searchQuery, getSearchHaystack) : [...corpus])
       : [...allQuestions];
 
     if (currentFilter === 'pinned') qs = qs.filter(q => q.pinned);

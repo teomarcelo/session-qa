@@ -17,8 +17,16 @@ export default function QuestionsList({
   onUpvote,
   onEdit,
 }) {
-  // When searching, scan all cached pages; otherwise use the current page.
-  const corpus = searchQuery ? allCachedQuestions : questions;
+  // Filtering and vote-sorting only the current page would hide matches that live
+  // on other loaded pages (e.g. an answered question or a high-vote question that
+  // isn't on the visible page). So when a non-default filter is active, sort is by
+  // votes, or a search is running, scan the full loaded corpus (all cached pages) —
+  // mirroring the instructor board. The default recent/all view keeps per-page
+  // pagination behavior.
+  const nonDefaultFilter =
+    filter === 'answered' || filter === 'pinned' || filter === 'unanswered';
+  const useFullCorpus = !!searchQuery || sort === 'votes' || nonDefaultFilter;
+  const corpus = useFullCorpus ? allCachedQuestions : questions;
 
   let qs = searchQuery
     ? filterCorpusByFuseSearch(corpus, searchQuery, getQuestionSearchHaystack)

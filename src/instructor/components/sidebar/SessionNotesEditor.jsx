@@ -7,6 +7,9 @@
 import { useEffect, useRef } from 'react';
 import firebase from '../../../lib/firebaseCompat.js';
 import { useFirebase } from '../../../shared/FirebaseContext.jsx';
+import { ensureInstructorAuth } from '../../../lib/auth.js';
+import { IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY } from '../../../constants/app.js';
+import { extractImageUrlForQuestionPaste } from '../../../lib/clipboardImagePaste.js';
 import useInstructorStore from '../../store/useInstructorStore.js';
 import { SESSION_SIDEBAR_NOTES_MAX, SESSION_NOTE_LINKS_MAX, getSessionNotesFromDoc } from '../../../lib/sessionNotes.js';
 import { myNameForSession } from '../../hooks/useInstructorAuth.js';
@@ -15,6 +18,56 @@ import SaveButton from '../SaveButton.jsx';
 
 function newSessionNoteId() {
   return 'sn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+}
+
+// ── Image paste helpers (same pipeline as the ask box / answer box) ──────────
+/** Extract image File objects from a paste event's clipboard data. */
+function collectImageFilesFromPaste(e) {
+  const out = [];
+  const cd = e.clipboardData;
+  if (!cd) return out;
+  if (cd.items && cd.items.length) {
+    for (let i = 0; i < cd.items.length; i++) {
+      const it = cd.items[i];
+      if (it.kind === 'file' && it.type && it.type.indexOf('image') === 0) {
+        const f = it.getAsFile();
+        if (f && f.size > 0) out.push(f);
+      }
+    }
+  }
+  if (!out.length && cd.files && cd.files.length) {
+    for (let j = 0; j < cd.files.length; j++) {
+      if (cd.files[j].type && cd.files[j].type.indexOf('image') === 0 && cd.files[j].size > 0) {
+        out.push(cd.files[j]);
+      }
+    }
+  }
+  return out;
+}
+
+/** Resize an image file/blob to a JPEG blob, capped at IMAGE_MAX_EDGE on the longest side. */
+function resizeImageToJpegBlob(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const u = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(u);
+      const w = img.width, h = img.height;
+      const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(w, h, 1));
+      const cw = Math.max(1, Math.round(w * scale));
+      const ch = Math.max(1, Math.round(h * scale));
+      const c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      c.toBlob(
+        (blob) => { blob ? resolve(blob) : reject(new Error('encode')); },
+        'image/jpeg',
+        IMAGE_JPEG_QUALITY,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); reject(new Error('image')); };
+    img.src = u;
+  });
 }
 
 // Canonical, comparable shape for a note (drops editor-only fields like
@@ -35,12 +88,100 @@ function canonicalNotes(notes) {
     .filter(n => n.title || n.body || n.imageUrls.length || n.links.length);
 }
 
-function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
+function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse, storage, sessionCode, isDemoMode, showToast }) {
   const bodyId = `sn-body-${note.id}`;
   const titleId = `sn-title-${note.id}`;
 
+  const noteImages = Array.isArray(note.imageUrls)
+    ? note.imageUrls.map(u => String(u || '').trim()).filter(Boolean)
+    : [];
+
   const updateField = (field, value) => {
     onUpdate({ ...note, [field]: value });
+  };
+
+  const removeImage = (url) => {
+    onUpdate({ ...note, imageUrls: noteImages.filter(u => u !== url) });
+  };
+
+  const appendImage = (url) => {
+    // Read the latest note images at append time so multiple quick pastes don't
+    // clobber each other.
+    const current = Array.isArray(note.imageUrls) ? note.imageUrls : [];
+    onUpdate({ ...note, imageUrls: [...current, url] });
+  };
+
+  // Upload a resized JPEG under sessions/{code}/images/ (same path family the
+  // README specifies), returning the download URL.
+  const uploadNoteImage = async (blob) => {
+    const path = `sessions/${sessionCode}/images/note_${note.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const snap = await storage.ref(path).put(blob, { contentType: 'image/jpeg' });
+    return snap.ref.getDownloadURL();
+  };
+
+  // Paste-to-upload for note images. Mirrors the ask box / answer box: image files
+  // are resized + uploaded to Firebase Storage; a pasted https:// image link is
+  // fetched, re-encoded, and uploaded (falling back to the raw URL if blocked).
+  const handlePaste = async (e) => {
+    const files = collectImageFilesFromPaste(e);
+    const clipUrl = extractImageUrlForQuestionPaste(e, files.length > 0);
+    if (!files.length && !clipUrl) return;
+
+    if (isDemoMode) {
+      e.preventDefault();
+      showToast('Image paste: use a live session (demo has no Storage).');
+      return;
+    }
+    if (!sessionCode) return;
+
+    if (!storage) {
+      // No Storage bound: keep an https:// link if one was pasted, else advise.
+      if (clipUrl) {
+        e.preventDefault();
+        appendImage(clipUrl);
+        showToast('Image link added (Storage not enabled—uses the hosted URL).');
+        return;
+      }
+      e.preventDefault();
+      showToast('Image files need Firebase Storage. Paste an https:// image link instead.');
+      return;
+    }
+
+    e.preventDefault();
+
+    if (files.length) {
+      for (const file of files) {
+        try {
+          showToast('Uploading image…');
+          const blob = await resizeImageToJpegBlob(file);
+          const url = await uploadNoteImage(blob);
+          appendImage(url);
+          showToast('Image added to note. Save to keep it.');
+        } catch (err) {
+          console.warn('Note image upload failed:', err);
+          showToast('Upload failed. Check Firebase Storage + rules (SETUP.md).');
+        }
+      }
+      return;
+    }
+
+    if (clipUrl) {
+      showToast('Uploading image…');
+      try {
+        const r = await fetch(clipUrl, { mode: 'cors' });
+        if (!r.ok) throw new Error('Could not download image.');
+        const blob0 = await r.blob();
+        const jpeg = await resizeImageToJpegBlob(blob0);
+        const url2 = await uploadNoteImage(jpeg);
+        appendImage(url2);
+        showToast('Image added to note. Save to keep it.');
+      } catch (err) {
+        console.warn('Note image link upload failed:', err);
+        // Fall back to the raw URL so the instructor can still save something.
+        appendImage(clipUrl);
+        showToast('Using image link (upload was blocked). Save to keep the URL.');
+      }
+    }
   };
 
   const updateLink = (i, field, value) => {
@@ -129,10 +270,33 @@ function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
             <textarea
               className="mini-input mini-textarea sn-body-input"
               id={bodyId}
-              placeholder="Announcements, reminders, resources…"
+              placeholder="Announcements, reminders, resources… Paste a screenshot or image link to attach."
               value={note.body || ''}
               onChange={e => updateField('body', e.target.value)}
+              onPaste={handlePaste}
             />
+          </div>
+
+          {/* Attached images (paste to add; × to remove; saved with the note) */}
+          <div className="form-field sn-images-field">
+            {noteImages.length > 0 && (
+              <label className="sn-images-label">Attached images</label>
+            )}
+            <div className="sn-images-thumbs answer-paste-preview">
+              {noteImages.map(url => (
+                <span key={url} className="paste-preview-item">
+                  <img src={url} alt="" referrerPolicy="no-referrer" />
+                  <button
+                    type="button"
+                    className="paste-preview-remove"
+                    aria-label="Remove image"
+                    onClick={() => removeImage(url)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* Links */}
@@ -171,7 +335,7 @@ function NoteCard({ note, index, onUpdate, onRemove, onToggleCollapse }) {
 }
 
 export default function SessionNotesEditor() {
-  const { db } = useFirebase();
+  const { db, storage } = useFirebase();
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
   const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
   const allSessions = useInstructorStore(s => s.allSessions);
@@ -353,6 +517,12 @@ export default function SessionNotesEditor() {
     }
 
     if (!db) { showToast('Firebase not available.'); return false; }
+    // Updating the session doc requires a verified salesforce.com user
+    // (isSalesforce() in the rules). Await auth before writing.
+    if (!(await ensureInstructorAuth())) {
+      showToast('Sign in with your salesforce.com Google account to save notes.');
+      return false;
+    }
     try {
       await db.collection('sessions').doc(activeSessionCode).update(payload);
       const updated = allSessions.map(s =>
@@ -395,6 +565,10 @@ export default function SessionNotesEditor() {
                 onUpdate={updateNote}
                 onRemove={removeNote}
                 onToggleCollapse={toggleCollapse}
+                storage={storage}
+                sessionCode={activeSessionCode}
+                isDemoMode={isDemoMode}
+                showToast={showToast}
               />
             ))
           )}

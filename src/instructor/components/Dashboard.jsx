@@ -662,12 +662,10 @@ function DashboardInner() {
       <CreateSessionModal />
       <DeleteModal />
 
-      {/* Toast */}
-      {toast.visible && (
-        <div className="toast" id="toast" style={{ opacity: 1 }}>
-          {toast.message}
-        </div>
-      )}
+      {/* Toast — always rendered so the CSS slide-up transition fires */}
+      <div className={`toast${toast.visible ? ' show' : ''}`} role="status" aria-live="polite">
+        {toast.message}
+      </div>
     </>
   );
 }

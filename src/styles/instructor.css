@@ -600,6 +600,18 @@
     color: var(--danger);
     background: var(--danger-light);
   }
+  .session-hide-btn--confirm {
+    width: auto;
+    padding: 0 8px;
+    border-color: var(--danger);
+    color: white;
+    background: var(--danger);
+    font-weight: 600;
+  }
+  .session-hide-btn--confirm:hover {
+    background: var(--danger);
+    color: white;
+  }
 
   /* Main panel */
   .main-panel {
@@ -1346,7 +1358,7 @@
   }
   .modal-title { font-weight: 600; margin-bottom: 0.5rem; }
   .modal-body { color: var(--text-muted); font-size: 0.92rem; margin-bottom: 1.25rem; line-height: 1.5; }
-  .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
   .btn-ghost { padding: 0.55rem 1.1rem; background: none; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
   .btn-danger { padding: 0.55rem 1.1rem; background: var(--danger); color: white; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 0.9rem; cursor: pointer; }
 
