@@ -68,6 +68,39 @@ export function onAuthReady() {
 /** Alias kept for readability at call sites that want to "await auth". */
 export const waitForAuth = onAuthReady;
 
+const SALESFORCE_EMAIL_RE = /^[^@]+@salesforce[.]com$/;
+
+/**
+ * True only for a live, verified salesforce.com instructor identity. This mirrors
+ * the Firestore `isSalesforce()` rule client-side so we never issue a privileged
+ * read/write with a null, anonymous, or unverified token (which the rules reject
+ * with "Missing or insufficient permissions").
+ *
+ * NOTE: `user.emailVerified` maps to the `email_verified` token claim the rules
+ * check; Google Workspace accounts return true.
+ */
+export function isVerifiedSalesforceUser(user) {
+  if (!user || user.isAnonymous) return false;
+  if (user.emailVerified !== true) return false;
+  const email = user.email ? String(user.email).toLowerCase() : '';
+  return SALESFORCE_EMAIL_RE.test(email);
+}
+
+/**
+ * Await auth restoration, then return the current user only if it is a verified
+ * salesforce.com instructor; otherwise null. Use this to gate instructor
+ * privileged Firestore operations so they never race ahead of auth (post-refresh
+ * currentUser === null) or run under an anonymous student session on the same
+ * origin. In demo / no-config mode returns null (callers take the demo path).
+ */
+export async function ensureInstructorAuth() {
+  const auth = getAuth();
+  if (!auth) return null;
+  await onAuthReady();
+  const u = auth.currentUser;
+  return isVerifiedSalesforceUser(u) ? u : null;
+}
+
 /**
  * Instructor sign-in with Google, hinted to the salesforce.com workspace.
  * Domain restriction is *enforced* by Firestore rules (verified salesforce.com

@@ -17,6 +17,13 @@ service firebase.storage {
                    && request.resource.contentType == 'image/jpeg';
     }
 
+    // Instructor session note images (paste uploads from the notes editor)
+    match /sessions/{sessionId}/images/{filename} {
+      allow read: if true;
+      allow write: if request.resource.size <= 8 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
+    }
+
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '../../../shared/FirebaseContext.jsx';
+import { ensureInstructorAuth } from '../../../lib/auth.js';
 import useInstructorStore from '../../store/useInstructorStore.js';
 
 function formatFeedbackWhen(ms) {
@@ -31,33 +32,54 @@ export default function SessionFeedbackList() {
 
     if (!activeSessionCode || isDemoMode || !db) return;
 
-    unsubRef.current = db
-      .collection('sessions')
-      .doc(activeSessionCode)
-      .collection('sessionFeedback')
-      .onSnapshot(
-        (snap) => {
-          const latest = useInstructorStore.getState().activeSessionCode;
-          if (activeSessionCode !== latest) return;
-          const items = [];
-          snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-          items.sort((a, b) => (b.submittedAtMs || 0) - (a.submittedAtMs || 0));
-          setRows(items);
-        },
-        (err) => {
-          console.warn('Dashboard feedback listener:', err);
-          const latest = useInstructorStore.getState().activeSessionCode;
-          if (activeSessionCode !== latest) return;
-          const perm = err && (err.code === 'permission-denied' || err.code === 'firestore/permission-denied');
-          if (perm) {
-            setError('Could not load dashboard feedback: Firestore blocked reads. Publish the firestore.rules from this repo in the Firebase console.');
-          } else {
-            setError('Could not load dashboard feedback: ' + ((err && err.message) || String(err)));
+    // Reading sessionFeedback requires isSalesforce() in the rules. If we subscribe
+    // before Firebase Auth has restored the verified user (e.g. right after a page
+    // refresh) the request carries no/anon token and is rejected. So await auth,
+    // confirm a verified salesforce.com user, then attach the listener. `cancelled`
+    // guards against the session changing (or unmount) during the await.
+    let cancelled = false;
+
+    (async () => {
+      const user = await ensureInstructorAuth();
+      if (cancelled) return;
+      const latest = useInstructorStore.getState().activeSessionCode;
+      if (activeSessionCode !== latest) return;
+
+      if (!user) {
+        setError('Could not load dashboard feedback: sign in with your salesforce.com Google account, then reopen this session.');
+        return;
+      }
+
+      unsubRef.current = db
+        .collection('sessions')
+        .doc(activeSessionCode)
+        .collection('sessionFeedback')
+        .onSnapshot(
+          (snap) => {
+            const latestCode = useInstructorStore.getState().activeSessionCode;
+            if (activeSessionCode !== latestCode) return;
+            const items = [];
+            snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+            items.sort((a, b) => (b.submittedAtMs || 0) - (a.submittedAtMs || 0));
+            setError(null);
+            setRows(items);
+          },
+          (err) => {
+            console.warn('Dashboard feedback listener:', err);
+            const latestCode = useInstructorStore.getState().activeSessionCode;
+            if (activeSessionCode !== latestCode) return;
+            const perm = err && (err.code === 'permission-denied' || err.code === 'firestore/permission-denied');
+            if (perm) {
+              setError('Could not load dashboard feedback: Firestore blocked reads. Publish the firestore.rules from this repo in the Firebase console.');
+            } else {
+              setError('Could not load dashboard feedback: ' + ((err && err.message) || String(err)));
+            }
           }
-        }
-      );
+        );
+    })();
 
     return () => {
+      cancelled = true;
       if (unsubRef.current) {
         unsubRef.current();
         unsubRef.current = null;

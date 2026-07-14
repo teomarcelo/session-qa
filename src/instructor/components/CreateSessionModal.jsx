@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import firebase from '../../lib/firebaseCompat.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
+import { ensureInstructorAuth } from '../../lib/auth.js';
 import useInstructorStore from '../store/useInstructorStore.js';
 import { SESSION_JOIN_PREFIX } from '../../lib/sessionCode.js';
 import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../../lib/sessionLaunch.js';
@@ -87,6 +88,15 @@ export default function CreateSessionModal() {
     // Raw lowercased verified email so Firestore rules can match request.auth.token.email
     // directly (rules cannot reproduce emailToId). Empty when no verified email (rare/local).
     const ownerEmail = (state.instructorEmail || '').trim().toLowerCase();
+
+    // Creating a session requires a verified salesforce.com user whose email
+    // matches ownerEmail (isSalesforce() + ownerEmail == verifiedEmail() in the
+    // rules). Await auth before writing so it can't 403 on a pre-auth render.
+    const instructor = await ensureInstructorAuth();
+    if (!instructor) {
+      setError('Sign in with your salesforce.com Google account to create a session.');
+      return false;
+    }
 
     setLoading(true);
     const sessionPayload = {

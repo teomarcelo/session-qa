@@ -11,6 +11,7 @@ import {
   JOIN_CODE_ROW_LEGACY_TDX_CLASS,
 } from '../../lib/sessionCode.js';
 import { nameToId } from '../hooks/useInstructorAuth.js';
+import { ensureInstructorAuth } from '../../lib/auth.js';
 import SaveButton from './SaveButton.jsx';
 
 export default function JoinSessionModal() {
@@ -52,6 +53,13 @@ export default function JoinSessionModal() {
         setError('Enter all four characters after SQA-.');
         return false;
       }
+    }
+    // Joining registers the instructor as a co-instructor (session update +
+    // instructor doc write), all of which require a verified salesforce.com user
+    // in the rules. Await auth before touching Firestore.
+    if (!(await ensureInstructorAuth())) {
+      setError('Sign in with your salesforce.com Google account to join a session.');
+      return false;
     }
     try {
       const doc = await db.collection('sessions').doc(code).get();

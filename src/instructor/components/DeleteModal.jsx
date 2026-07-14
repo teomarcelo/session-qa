@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import useInstructorStore from '../store/useInstructorStore.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
+import { ensureInstructorAuth } from '../../lib/auth.js';
 
 export default function DeleteModal() {
   const { db } = useFirebase();
@@ -27,6 +28,12 @@ export default function DeleteModal() {
     }
 
     if (!db) { showToast('Firebase not available.'); closeDeleteModal(); return; }
+    // Deleting a question requires a verified salesforce.com user (isSalesforce()
+    // in the rules). Await auth so a pre-auth render / anon session can't 403.
+    if (!(await ensureInstructorAuth())) {
+      showToast('Sign in with your salesforce.com Google account to delete questions.');
+      return;
+    }
     setInProgress(true);
     try {
       await db.collection('sessions').doc(activeSessionCode).collection('questions').doc(rid).delete();
