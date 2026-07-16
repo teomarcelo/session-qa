@@ -2,14 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import { ensureAnonymousStudent } from '../../lib/auth.js';
+import useStudentDemoStore from '../demo/useStudentDemoStore.js';
 
 /**
  * Dashboard feedback modal — anonymous, no reply path, no student email collected.
  * Submits to sessions/{code}/sessionFeedback.
  * Closes on ESC or backdrop click.
  */
-export default function FeedbackModal({ sessionCode, onClose, showToast }) {
+export default function FeedbackModal({ sessionCode, onClose, showToast, isDemoMode = false }) {
   const { db } = useFirebase();
+  const addDemoFeedback = useStudentDemoStore((s) => s.addFeedback);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const subjectRef = useRef(null);
@@ -32,6 +34,21 @@ export default function FeedbackModal({ sessionCode, onClose, showToast }) {
     const msg = body.trim();
     if (!sub) { showToast('Please enter a subject.'); return; }
     if (!msg) { showToast('Please enter a message.'); return; }
+
+    // Demo mode: append the feedback to the in-memory store and return before
+    // any Firestore/auth call.
+    if (isDemoMode) {
+      addDemoFeedback({
+        id: 'df-' + Date.now(),
+        subject: sub.slice(0, 500),
+        body: msg.slice(0, 12000),
+        submittedAtMs: Math.floor(Date.now()),
+      });
+      onClose();
+      showToast('Thanks — your feedback was sent.');
+      return;
+    }
+
     if (!sessionCode) { showToast('Join a session before sending feedback.'); return; }
     if (!db) {
       showToast('Feedback cannot be sent right now. Check your connection and try again.');

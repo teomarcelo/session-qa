@@ -6,6 +6,7 @@ import FormatToolbar from './FormatToolbar.jsx';
 import { insertSlackFormat, insertEmoji } from '../utils/formatHelpers.js';
 import { extractImageUrlForQuestionPaste } from '../../lib/clipboardImagePaste.js';
 import { IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY } from '../../constants/app.js';
+import useStudentDemoStore, { DEMO_STUDENT_USER_ID } from '../demo/useStudentDemoStore.js';
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
@@ -86,8 +87,9 @@ function formatUploadError(err) {
  *  - postAnonymously toggle
  *  - image paste upload via Firebase Storage
  */
-export default function AskBox({ sessionCode, userId, userName, showToast, onSubmitDone }) {
+export default function AskBox({ sessionCode, userId, userName, showToast, onSubmitDone, isDemoMode = false }) {
   const { db, storage } = useFirebase();
+  const prependDemoQuestion = useStudentDemoStore((s) => s.prependQuestion);
   const [text, setText] = useState('');
   const [pendingImages, setPendingImages] = useState([]);
   const [postAnonymously, setPostAnonymously] = useState(
@@ -123,6 +125,15 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
       const files = collectImageFilesFromPaste(e);
       const htmlSrc = extractImageUrlForQuestionPaste(e, files.length > 0);
       if (!files.length && !htmlSrc) return;
+
+      // Demo mode has no Firebase Storage: block image paste with a friendly
+      // toast but let text (and the format toolbar) work normally. Never touch
+      // Storage. Text-only pastes never reach here (guarded above).
+      if (isDemoMode) {
+        e.preventDefault();
+        showToast('Image paste: use a live session (demo has no Storage).');
+        return;
+      }
 
       if (!storage) {
         if (htmlSrc) {
@@ -198,7 +209,7 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
         }
       }
     },
-    [sessionCode, storage, showToast, userId],
+    [sessionCode, storage, showToast, userId, isDemoMode],
   );
 
   function removePendingImage(pid) {
@@ -222,6 +233,44 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
   async function handleSubmit() {
     let t = text.trim();
     if (!t && !pendingImages.length) return;
+
+    // Demo mode: prepend the question to the in-memory store. Stamp the demo
+    // authorId and track it in sessionStorage (same key the real flow uses) so
+    // the "Edit" affordance appears on the student's own question. Never touch
+    // Firestore, Storage, or Auth.
+    if (isDemoMode) {
+      if (!t) return;
+      const displayName = postAnonymously
+        ? 'Anonymous'
+        : userName && userName !== 'Anonymous'
+        ? userName
+        : 'Anonymous';
+      const demoId = 'sdemo-' + genId() + '-' + Date.now();
+      prependDemoQuestion({
+        id: demoId,
+        text: t,
+        authorName: displayName,
+        authorEmail: '',
+        authorId: DEMO_STUDENT_USER_ID,
+        createdAt: new Date(),
+        status: 'pending',
+        pinned: false,
+        votes: 0,
+        voters: [],
+        answer: '',
+      });
+      try {
+        const key = 'sqa_my_questions_' + String(sessionCode || '').replace(/[^A-Z0-9_-]/gi, '');
+        const myQs = JSON.parse(sessionStorage.getItem(key) || '[]');
+        myQs.push(demoId);
+        sessionStorage.setItem(key, JSON.stringify(myQs));
+      } catch (e) {}
+      setText('');
+      clearPendingImages();
+      showToast('Question submitted!');
+      if (onSubmitDone) onSubmitDone();
+      return;
+    }
 
     if (pendingImages.some((r) => !r.url)) {
       showToast('Wait for images to finish uploading, then submit.');

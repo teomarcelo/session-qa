@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import firebase from '../../lib/firebaseCompat.js';
 import { ensureAnonymousStudent, currentUid } from '../../lib/auth.js';
+import useStudentDemoStore, { IS_STUDENT_DEMO } from '../demo/useStudentDemoStore.js';
 
 /**
  * Per-question optimistic upvote with lock to prevent double-tap.
@@ -17,9 +18,26 @@ import { ensureAnonymousStudent, currentUid } from '../../lib/auth.js';
 export function useUpvote(pollSkipUntilRef) {
   const { db } = useFirebase();
   const [lockedIds, setLockedIds] = useState(new Set());
+  const updateDemoQuestion = useStudentDemoStore((s) => s.updateQuestion);
 
   const handleUpvote = useCallback(
     (id, question, userId, sessionCode, onSuccess, showToast) => {
+      // Demo mode: toggle the vote in the in-memory store and return before any
+      // Firestore/auth call. `userId` is the fixed demo id in this path.
+      if (IS_STUDENT_DEMO) {
+        if (!id || !question) return;
+        const voters = question.voters || [];
+        const voted = voters.includes(userId);
+        updateDemoQuestion(id, (q) => ({
+          ...q,
+          votes: voted ? Math.max(0, (q.votes || 0) - 1) : (q.votes || 0) + 1,
+          voters: voted
+            ? (q.voters || []).filter((v) => v !== userId)
+            : [...(q.voters || []), userId],
+        }));
+        return;
+      }
+
       if (!db || !sessionCode) {
         showToast('Not connected. Try refreshing the page.');
         return;
@@ -82,7 +100,7 @@ export function useUpvote(pollSkipUntilRef) {
           });
         });
     },
-    [db, lockedIds, pollSkipUntilRef],
+    [db, lockedIds, pollSkipUntilRef, updateDemoQuestion],
   );
 
   return { lockedIds, handleUpvote };

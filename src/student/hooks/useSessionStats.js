@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchSessionQuestionCountStats } from '../../lib/sessionQuestionCounts.js';
+import { IS_STUDENT_DEMO } from '../demo/useStudentDemoStore.js';
 
 /**
  * Fetches Firestore aggregate question counts for the stats grid.
  * Falls back to counting from cached questions if the aggregate call fails.
  * Uses a serial number to cancel stale requests when the session changes.
+ *
+ * In demo mode the aggregate query is never issued — stats are counted from the
+ * in-memory demo questions passed in as `allCachedQuestions`.
  */
 export function useSessionStats(sessionCode, db, allCachedQuestions) {
   const [stats, setStats] = useState({ total: 0, answered: 0, pending: 0, pinned: 0 });
@@ -15,8 +19,8 @@ export function useSessionStats(sessionCode, db, allCachedQuestions) {
     serialRef.current += 1;
     const mySerial = serialRef.current;
 
-    if (!db || !sessionCode) {
-      // No Firebase — count from cached questions
+    if (IS_STUDENT_DEMO || !db || !sessionCode) {
+      // Demo mode or no Firebase — count from cached (in-memory) questions.
       setStats(countFromCache(allCachedQuestions));
       return;
     }

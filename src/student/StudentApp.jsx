@@ -22,6 +22,7 @@ export default function StudentApp() {
     joining,
     handleJoin,
     handleLeave,
+    isDemoMode,
   } = useStudentSession();
 
   if (appState === 'restoring') {
@@ -49,6 +50,7 @@ export default function StudentApp() {
       userName={userName}
       userId={userId}
       onLeave={handleLeave}
+      isDemoMode={isDemoMode}
     />
   );
 }

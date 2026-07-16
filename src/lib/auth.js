@@ -133,6 +133,13 @@ export async function signInInstructorWithGoogle() {
 export async function ensureAnonymousStudent() {
   const auth = getAuth();
   if (!auth) return null;
+  // Wait for Firebase to restore any persisted session BEFORE deciding to sign
+  // in anonymously. Firebase Auth persistence is shared per-origin, so on a
+  // freshly-loaded document (notably the instructor's "Student view" iframe)
+  // auth.currentUser is momentarily null until restoration completes. Signing
+  // in anonymously during that window would overwrite an existing instructor
+  // (Google) session for the whole origin and bounce them to the login screen.
+  await onAuthReady();
   if (auth.currentUser) return auth.currentUser;
   try {
     const cred = await auth.signInAnonymously();

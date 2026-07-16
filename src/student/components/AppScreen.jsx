@@ -16,6 +16,7 @@ import { myQsKey } from '../hooks/useStudentSession.js';
 import { copyRichCodeBlock as runCopyRichCodeBlock } from '../../lib/richText.js';
 import { studentSessionDisplayTitle } from './SessionInfo.jsx';
 import ImageLightbox from '../../shared/ImageLightbox.jsx';
+import useStudentDemoStore from '../demo/useStudentDemoStore.js';
 
 /**
  * AppScreen — the main Q&A interface shown after joining a session.
@@ -33,8 +34,10 @@ export default function AppScreen({
   userName,
   userId,
   onLeave,
+  isDemoMode = false,
 }) {
   const { db } = useFirebase();
+  const updateDemoQuestion = useStudentDemoStore((s) => s.updateQuestion);
 
   // --- Poll skip window (shared ref between useQuestions + useUpvote) ---
   const pollSkipUntilRef = useRef(0);
@@ -186,6 +189,13 @@ export default function AppScreen({
         return;
       }
     } catch (e) {}
+    // Demo mode: update the question text in the in-memory store; never call db.
+    if (isDemoMode) {
+      updateDemoQuestion(editingQuestion.id, (q) => ({ ...q, text }));
+      setEditingQuestion(null);
+      showToast('Question updated.');
+      return;
+    }
     try {
       await db
         .collection('sessions')
@@ -240,6 +250,7 @@ export default function AppScreen({
             userName={userName}
             showToast={showToast}
             onSubmitDone={handleSubmitDone}
+            isDemoMode={isDemoMode}
           />
 
           {/* Search row */}
@@ -378,6 +389,7 @@ export default function AppScreen({
           sessionCode={sessionCode}
           onClose={() => setFeedbackOpen(false)}
           showToast={showToast}
+          isDemoMode={isDemoMode}
         />
       )}
 

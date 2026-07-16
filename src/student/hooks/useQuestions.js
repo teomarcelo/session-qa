@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import { QUESTIONS_PAGE_SIZE } from '../../constants/app.js';
+import useStudentDemoStore, { IS_STUDENT_DEMO } from '../demo/useStudentDemoStore.js';
 
 /**
  * Manages paginated question fetching for the student board.
@@ -23,6 +24,11 @@ import { QUESTIONS_PAGE_SIZE } from '../../constants/app.js';
  */
 export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-line no-unused-vars
   const { db } = useFirebase();
+
+  // Demo mode: the board is driven entirely by the in-memory demo store. This
+  // subscription is a harmless no-op in the real flow (the store never changes),
+  // and it is called unconditionally to respect the rules of hooks.
+  const demoQuestions = useStudentDemoStore((s) => s.questions);
 
   const [questionPages, setQuestionPages] = useState([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -56,6 +62,7 @@ export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-
 
   /** One-shot refresh of page 0 (Refresh button / after submit). */
   const fetchFirstPage = useCallback(async () => {
+    if (IS_STUDENT_DEMO) return;
     if (!db || !sessionCode) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
@@ -83,6 +90,7 @@ export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-
 
   /** Load or navigate to the next (older) page. */
   const goNextPage = useCallback(async () => {
+    if (IS_STUDENT_DEMO) return;
     if (!db || !sessionCode || loadingRef.current) return;
 
     const cp = currentPageRef.current;
@@ -158,6 +166,8 @@ export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-
 
   // --- Reset + live listener when the session (or db) changes ---
   useEffect(() => {
+    // Demo mode never attaches a Firestore listener — the demo store is the feed.
+    if (IS_STUDENT_DEMO) return;
     if (!sessionCode) return;
 
     // Reset all state for the new session
@@ -234,6 +244,26 @@ export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-
     currentPageRef.current = 0;
     questionPagesRef.current = [];
   }, []);
+
+  // Demo mode: serve the seeded questions from the in-memory store as a single
+  // page. No cursors, no pagination, no listener — but the exact same return
+  // shape the components consume, with the fetch/nav callbacks as safe no-ops.
+  if (IS_STUDENT_DEMO) {
+    const demoPages = [{ questions: demoQuestions, endSnap: null }];
+    return {
+      allQuestions: demoQuestions,
+      questionPages: demoPages,
+      currentPage: 0,
+      olderExhausted: true,
+      loading: false,
+      fetchFirstPage,
+      goNextPage,
+      goPrevPage,
+      goToPage,
+      getAllCached: () => demoQuestions.slice(),
+      reset,
+    };
+  }
 
   return {
     allQuestions,

@@ -4,6 +4,13 @@ import {
   normalizeSessionCodeFromJoinInput,
 } from '../../lib/sessionCode.js';
 import { ensureAnonymousStudent } from '../../lib/auth.js';
+import {
+  IS_STUDENT_DEMO,
+  DEMO_SESSION_CODE,
+  DEMO_STUDENT_USER_ID,
+  DEMO_STUDENT_USER_NAME,
+  freshDemoSession,
+} from '../demo/useStudentDemoStore.js';
 
 const LS_STUDENT_UID = 'sqa_student_uid';
 const LS_STUDENT_UID_LEGACY = 'tdx_student_uid';
@@ -98,8 +105,9 @@ function migrateLegacyStudentMyQuestions(sessionCode) {
 export function useStudentSession() {
   const { db } = useFirebase();
 
-  // Resolved on first render; stable for the lifetime of the page.
-  const userIdRef = useRef(resolveUserId());
+  // Resolved on first render; stable for the lifetime of the page. In demo mode
+  // we use a fixed demo id and never touch localStorage for identity.
+  const userIdRef = useRef(IS_STUDENT_DEMO ? DEMO_STUDENT_USER_ID : resolveUserId());
   const userId = userIdRef.current;
 
   const [storedName] = useState(() => resolveStoredName());
@@ -118,6 +126,19 @@ export function useStudentSession() {
     function bailToJoin() {
       try { document.documentElement.classList.remove('std-restoring-session'); } catch (e) {}
       setAppState('join');
+    }
+
+    // Demo mode: bypass Firestore and auth entirely. Drop the student straight
+    // into the app on the shared demo session — no db read, no anonymous
+    // sign-in, no live listener. Everything downstream reads the in-memory demo
+    // store instead of Firestore.
+    if (IS_STUDENT_DEMO) {
+      setUserName(DEMO_STUDENT_USER_NAME);
+      setSessionCode(DEMO_SESSION_CODE);
+      setCurrentSession(freshDemoSession());
+      try { document.documentElement.classList.remove('std-restoring-session'); } catch (e) {}
+      setAppState('app');
+      return;
     }
 
     if (!db) {
@@ -175,6 +196,9 @@ export function useStudentSession() {
 
   // --- Live session listener (re-subscribes when sessionCode or db changes) ---
   useEffect(() => {
+    // Demo mode has no Firestore session doc to listen to; the session is the
+    // static in-memory fixture set above.
+    if (IS_STUDENT_DEMO) return;
     if (!db || !sessionCode || appState !== 'app') return;
 
     if (typeof unsubSessionRef.current === 'function') {
@@ -207,6 +231,13 @@ export function useStudentSession() {
 
   // --- Join ---
   const handleJoin = useCallback(async (codeValue, nameValue) => {
+    // In demo mode joining is disabled — there is no Firestore to query. This
+    // only matters if a user hits "Leave" inside the preview iframe; it must
+    // never fall through to a real db read.
+    if (IS_STUDENT_DEMO) {
+      setJoinError('Joining is disabled in the demo preview.');
+      return;
+    }
     if (!db) {
       setJoinError('Not connected to Firebase.');
       return;
@@ -268,5 +299,6 @@ export function useStudentSession() {
     joining,
     handleJoin,
     handleLeave,
+    isDemoMode: IS_STUDENT_DEMO,
   };
 }
