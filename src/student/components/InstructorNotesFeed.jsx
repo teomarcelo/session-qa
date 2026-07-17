@@ -1,4 +1,11 @@
-import { esc, formatRichMessage, isHttpsUrl } from '../../lib/richText.js';
+import { useState } from 'react';
+import {
+  esc,
+  formatRichMessage,
+  isHttpsUrl,
+  richSourceToPlainText,
+  writeTextToClipboard,
+} from '../../lib/richText.js';
 import { getStudentVisibleSessionNotes } from '../../lib/sessionNotes.js';
 import { isStudentInstructorNotesDashboardEnabled } from '../../lib/sessionNotes.js';
 
@@ -9,7 +16,7 @@ import { isStudentInstructorNotesDashboardEnabled } from '../../lib/sessionNotes
  * dangerouslySetInnerHTML is used for note titles and bodies rendered through
  * formatRichMessage — all user content is escaped via esc() inside the formatter.
  */
-export default function InstructorNotesFeed({ currentSession, visible }) {
+export default function InstructorNotesFeed({ currentSession, visible, showToast }) {
   const notes = currentSession ? getStudentVisibleSessionNotes(currentSession) : [];
   const enabled = isStudentInstructorNotesDashboardEnabled(currentSession);
 
@@ -28,7 +35,7 @@ export default function InstructorNotesFeed({ currentSession, visible }) {
           </div>
         ) : (
           notes.map((n, i) => (
-            <NoteCard key={n.id || i} note={n} />
+            <NoteCard key={n.id || i} note={n} showToast={showToast} />
           ))
         )}
       </div>
@@ -36,7 +43,22 @@ export default function InstructorNotesFeed({ currentSession, visible }) {
   );
 }
 
-function NoteCard({ note: n }) {
+/** Assemble clean, copyable plain text for a note: title, body, then links. */
+function buildNoteCopyText({ title, body, links }) {
+  const parts = [];
+  const t = richSourceToPlainText(title);
+  const b = richSourceToPlainText(body);
+  if (t) parts.push(t);
+  if (b) parts.push(b);
+  if (Array.isArray(links) && links.length) {
+    const linkLines = links.map((l) => (l.label ? `${l.label}: ${l.url}` : l.url));
+    parts.push(linkLines.join('\n'));
+  }
+  return parts.join('\n\n').trim();
+}
+
+function NoteCard({ note: n, showToast }) {
+  const [copied, setCopied] = useState(false);
   const who = String(n.instructor || '').trim();
   const t = String(n.title || '').trim();
   const b = String(n.body || '').trim();
@@ -55,9 +77,49 @@ function NoteCard({ note: n }) {
     }))
     .filter((l) => /^https?:\/\//i.test(l.url));
 
+  const copyText = buildNoteCopyText({ title: t, body: b, links });
+
+  function handleCopy() {
+    if (!copyText) return;
+    writeTextToClipboard(copyText)
+      .then(() => {
+        setCopied(true);
+        if (typeof showToast === 'function') showToast('Note copied to clipboard');
+        setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => {
+        if (typeof showToast === 'function') showToast('Could not copy');
+      });
+  }
+
   return (
     <div className="session-note-card">
-      {who && <div className="session-note-byline">{who}</div>}
+      {(who || copyText) && (
+        <div className="session-note-header">
+          {who ? <div className="session-note-byline">{who}</div> : <span />}
+          {copyText && (
+            <button
+              type="button"
+              className={`session-note-copy-btn${copied ? ' session-note-copy-btn--done' : ''}`}
+              onClick={handleCopy}
+              aria-label="Copy note text"
+              title="Copy note text"
+            >
+              {copied ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {t && (
         /* dangerouslySetInnerHTML: formatRichMessage escapes all user content via esc() before adding markup */

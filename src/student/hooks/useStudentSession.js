@@ -207,7 +207,6 @@ export function useStudentSession() {
     }
 
     const unsub = db.collection('sessions').doc(sessionCode).onSnapshot(
-      { includeMetadataChanges: true },
       (snap) => {
         if (!snap.exists) return;
         const payload = snap.data();

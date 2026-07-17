@@ -64,6 +64,53 @@ export function formatRichMessage(raw) {
   return s;
 }
 
+/**
+ * Convert the raw rich-text source (Slack-style markup) to readable plain text
+ * for copying: strips emphasis markers, unwraps code, and renders
+ * [label](url) as "label (url)". Preserves newlines.
+ */
+export function richSourceToPlainText(raw) {
+  let s = String(raw || '');
+  s = s.replace(/```[a-zA-Z0-9_-]*\n?([\s\S]*?)```/g, (_m, code) => String(code).replace(/\n+$/, ''));
+  s = s.replace(/`([^`\n]+)`/g, '$1');
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1 ($2)');
+  s = s.replace(/\*(?!\*)([\s\S]*?)\*(?!\*)/g, '$1');
+  s = s.replace(/_([^_\n]+)_/g, '$1');
+  s = s.replace(/~([^~\n]+)~/g, '$1');
+  return s.trim();
+}
+
+/**
+ * Write text to the clipboard with a graceful execCommand fallback.
+ * @param {string} txt
+ * @returns {Promise<void>}
+ */
+export function writeTextToClipboard(txt) {
+  const text = String(txt == null ? '' : txt);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+  }
+  return legacyCopy(text);
+}
+
+function legacyCopy(text) {
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 export function isHttpsUrl(u) {
   return !!u && /^https:\/\//i.test(String(u).trim());
 }
@@ -91,38 +138,5 @@ export function copyRichCodeBlock(button, showToast) {
     button.classList.add('rich-copy-btn--done');
     setTimeout(() => button.classList.remove('rich-copy-btn--done'), 1600);
   }
-  function fail() {
-    showToast('Could not copy');
-  }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(txt).then(done).catch(() => {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = txt;
-        ta.setAttribute('readonly', '');
-        ta.style.cssText = 'position:fixed;left:-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        done();
-      } catch (_e) {
-        fail();
-      }
-    });
-  } else {
-    try {
-      const ta2 = document.createElement('textarea');
-      ta2.value = txt;
-      ta2.setAttribute('readonly', '');
-      ta2.style.cssText = 'position:fixed;left:-9999px';
-      document.body.appendChild(ta2);
-      ta2.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta2);
-      done();
-    } catch (_e2) {
-      fail();
-    }
-  }
+  writeTextToClipboard(txt).then(done).catch(() => showToast('Could not copy'));
 }

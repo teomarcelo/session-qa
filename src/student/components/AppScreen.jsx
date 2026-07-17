@@ -361,6 +361,7 @@ export default function AppScreen({
           <InstructorNotesFeed
             currentSession={currentSession}
             visible={feedView === 'notes' && notesEnabled}
+            showToast={showToast}
           />
         </div>
 
