@@ -38,7 +38,10 @@ If the count is 0, flag it — CLAUDE.md may have been modified.
 
 ### 5. Remind Teo to verify live URL manually
 Ask Teo to open this URL in a browser and confirm it loads:
-**https://teomarcelo.github.io/session-qa/student.html**
+**https://tdx-qa.web.app/student.html**
+
+Production is Firebase Hosting. The old GitHub Pages URL
+(`teomarcelo.github.io/session-qa/`) is retired and returns 404.
 
 ### 6. Remind Teo to confirm Firebase spending limit
 Ask Teo to verify the $1 Firebase Storage spending limit is still active at:

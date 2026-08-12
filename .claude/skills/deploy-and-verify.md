@@ -1,6 +1,17 @@
 # Deploy and Verify
 
-Run the full deploy sequence safely and confirm GitHub Pages updated correctly.
+Run the full deploy sequence safely and confirm Firebase Hosting updated correctly.
+
+## How this app actually deploys (read first)
+
+Production is **Firebase Hosting** at **https://tdx-qa.web.app**, published by
+running the Firebase CLI by hand. There is no CI deploy.
+
+- Pushing to `main` deploys **nothing**. The old `.github/workflows/deploy-pages.yml`
+  no longer exists in the repo.
+- GitHub Pages is **retired**. `https://teomarcelo.github.io/session-qa/` returns 404.
+- Never deploy the working tree. It routinely holds unfinished work. Always build
+  from a clean checkout of committed `HEAD`.
 
 ## Steps
 
@@ -16,36 +27,60 @@ git branch --show-current
 
   Wait for explicit confirmation before proceeding.
 
-### 2. Run build
+### 2. Confirm what is about to ship
 ```bash
-npm run build
+git log --oneline origin/main -5
+curl -sI https://tdx-qa.web.app/student.html | grep -i last-modified
 ```
 
-If the build fails, stop and report all errors. Do not proceed to step 3.
+List every commit made since that `last-modified` date. Deploys have lagged by
+weeks before, so a single-line fix can carry a month of unshipped work with it.
+Show Teo that list and get confirmation before continuing.
 
-### 3. Remind Teo to push manually
-The build passed. Tell Teo:
+### 3. Build from a clean checkout, never the working tree
+```bash
+git worktree add --detach /tmp/sqa-deploy origin/main
+ln -s "$(pwd)/node_modules" /tmp/sqa-deploy/node_modules
+cd /tmp/sqa-deploy && npm run build
+```
 
-> ✅ Build passed. When you're ready to deploy, run:
-> ```
-> git push origin main
-> ```
-> Do not push until you've confirmed this is intentional.
+If the build fails, stop and report all errors. Do not proceed.
 
-### 4. After Teo confirms push is done
-Provide the GitHub Actions URL for Teo to watch the deploy:
+### 4. Deploy
+```bash
+cd /tmp/sqa-deploy && npx firebase-tools deploy --only hosting --project tdx-qa
+```
 
-**https://github.com/teomarcelo/session-qa/actions**
+Only `--only hosting`. Deploying rules requires a separate explicit decision:
 
-Tell Teo to wait for the green checkmark on the latest workflow run.
+```bash
+npx firebase-tools deploy --only firestore:rules --project tdx-qa
+npx firebase-tools deploy --only storage --project tdx-qa
+```
 
-### 5. Verify both pages after deploy
-Once the green checkmark appears, ask Teo to verify both URLs:
+### 5. Verify the new bundle is actually serving
+```bash
+curl -s https://tdx-qa.web.app/student.html | grep -o 'assets/student-[A-Za-z0-9_-]*\.js'
+```
 
-- **https://teomarcelo.github.io/session-qa/student.html**
-- **https://teomarcelo.github.io/session-qa/instructor.html**
+Compare against the hash in `/tmp/sqa-deploy/dist/`. They must match. A 200 alone
+proves nothing, the old build also returns 200.
 
-### 6. Confirm deploy complete
-Ask Teo:
+### 6. Clean up
+```bash
+git worktree remove /tmp/sqa-deploy --force
+```
+
+### 7. Confirm with Teo
+Ask Teo to open both pages and confirm they load and behave correctly:
+
+- **https://tdx-qa.web.app/student.html**
+- **https://tdx-qa.web.app/instructor.html**
 
 > Do both pages load correctly? If yes, the deploy is complete. If anything looks wrong, do not declare done — investigate first.
+
+### 8. Watch cost for 24 hours after any student-side change
+Student code runs in every attendee's browser, so a render or polling regression
+bills real money. Check the Firestore read count the next day:
+
+**https://console.firebase.google.com/project/tdx-qa/usage**

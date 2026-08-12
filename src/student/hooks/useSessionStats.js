@@ -8,6 +8,16 @@ const EMPTY_STATS = { total: 0, answered: 0, pending: 0, pinned: 0 };
 // changes (a page load, a batch of upvotes) into a single aggregate query.
 const STATS_DEBOUNCE_MS = 400;
 
+// Background refresh cadence. The live listener only watches the newest page, so
+// a change outside it (an instructor answering an older question) would other-
+// wise leave the tiles stale until the visible feed happens to change. Three
+// reads a minute per visible tab stays inside the daily no-cost quota.
+const STATS_REFRESH_MS = 60_000;
+
+// Floor between focus-triggered refreshes, so rapid tab switching cannot turn
+// the visibility handler into a read amplifier.
+const STATS_FOCUS_MIN_GAP_MS = 10_000;
+
 /**
  * Fetches Firestore aggregate question counts for the stats grid.
  * Falls back to counting from cached questions if the aggregate call fails.
@@ -48,7 +58,11 @@ export function useSessionStats(sessionCode, db, allCachedQuestions) {
     }
 
     let cancelled = false;
-    const timer = setTimeout(() => {
+    let lastFetchAt = 0;
+
+    const runFetch = () => {
+      if (cancelled || mySerial !== serialRef.current) return;
+      lastFetchAt = Date.now();
       fetchSessionQuestionCountStats(sessionCode)
         .then((s) => {
           if (cancelled || mySerial !== serialRef.current) return; // stale
@@ -59,11 +73,32 @@ export function useSessionStats(sessionCode, db, allCachedQuestions) {
           const fallback = cacheStatsRef.current;
           setStats((prev) => (sameStats(prev, fallback) ? prev : fallback));
         });
-    }, STATS_DEBOUNCE_MS);
+    };
+
+    const timer = setTimeout(runFetch, STATS_DEBOUNCE_MS);
+
+    // A hidden tab is skipped entirely: a forgotten tab should cost nothing.
+    const interval = setInterval(() => {
+      if (isPageHidden()) return;
+      runFetch();
+    }, STATS_REFRESH_MS);
+
+    const onVisibilityChange = () => {
+      if (isPageHidden()) return;
+      if (Date.now() - lastFetchAt < STATS_FOCUS_MIN_GAP_MS) return;
+      runFetch();
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      }
     };
   // Keyed on the cache *counts*, not the cache array, so an unchanged feed never
   // triggers another aggregate query.
@@ -80,6 +115,10 @@ function countFromCache(questions) {
     pending: qs.filter((q) => q.status === 'pending').length,
     pinned: qs.filter((q) => q.pinned).length,
   };
+}
+
+function isPageHidden() {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden';
 }
 
 function statsKey(s) {

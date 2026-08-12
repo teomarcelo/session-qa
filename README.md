@@ -23,8 +23,9 @@ Live Q&A for trainings and events. Instructors run a session with a short code; 
 
 1. **Install:** `npm install`
 2. **Local dev:** `npm run dev` — open **`http://localhost:5173/`** for a link hub, or go straight to **`/student.html`** or **`/instructor.html`** (there is no app UI on `/` unless you use this hub).
-3. **Production build:** `npm run build` — outputs **`dist/`** with hashed JS/CSS and **relative** `./assets/…` URLs so the folder can be published to a static host. This repo is currently deployed on Netflix; ship the build artifact to your chosen hosting rather than committing it.
-4. **Optional env overrides:** set `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, etc. before `npm run build` (see `src/config/firebase.js`).
+3. **Production build:** `npm run build` — outputs **`dist/`** with hashed JS/CSS and **relative** `./assets/…` URLs so the folder can be published to a static host.
+4. **Deploy:** production is **Firebase Hosting** at **https://tdx-qa.web.app**, published manually with `npx firebase-tools deploy --only hosting --project tdx-qa`. Pushing to `main` does **not** deploy, and the old GitHub Pages URL is retired. Build from a clean checkout of committed `HEAD`, never from a dirty working tree. Full sequence in `.claude/skills/deploy-and-verify.md`.
+5. **Optional env overrides:** set `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, etc. before `npm run build` (see `src/config/firebase.js`).
 
 `dist/` is listed in `.gitignore`; ship the build artifact to hosting rather than committing it.
 
