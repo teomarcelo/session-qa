@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import { useQuestions } from '../hooks/useQuestions.js';
 import { useUpvote } from '../hooks/useUpvote.js';
@@ -53,7 +53,6 @@ export default function AppScreen({
     goNextPage,
     goPrevPage,
     goToPage,
-    getAllCached,
     reset: resetQuestions,
   } = useQuestions(sessionCode, pollSkipUntilRef);
 
@@ -61,14 +60,15 @@ export default function AppScreen({
   const { lockedIds, handleUpvote } = useUpvote(pollSkipUntilRef);
 
   // --- All cached questions (for stats + full-corpus search) ---
-  // Computed from questionPages state during render for correctness.
-  const allCached = (() => {
+  // Memoized: useSessionStats keys an aggregate Firestore query off this value,
+  // so rebuilding the array on every render would refetch (and bill) forever.
+  const allCached = useMemo(() => {
     const m = new Map();
     questionPages.forEach((p) => {
       (p.questions || []).forEach((q) => m.set(q.id, q));
     });
     return Array.from(m.values());
-  })();
+  }, [questionPages]);
   const stats = useSessionStats(sessionCode, db, allCached);
 
   // --- Filter / sort / feed view ---
