@@ -58,7 +58,10 @@ function extractImageSrcFromHtmlPaste(e) {
       let src = (imgs[i].getAttribute('src') || '').trim();
       if (!src || src.indexOf('data:') === 0) continue;
       src = normalizeClipboardImageHttps(src);
-      if (isHttpsUrl(src)) return src;
+      // Same check the uri-list and plain-text extractors apply. Without it any
+      // https URL in pasted markup becomes an <img src> the whole session loads,
+      // which is a usable tracking pixel.
+      if (isHttpsUrl(src) && looksLikeImageUrl(src)) return src;
     }
     return '';
   } catch (er) {

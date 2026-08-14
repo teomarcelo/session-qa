@@ -4,6 +4,7 @@ import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import { ensureInstructorAuth } from '../../lib/auth.js';
 import useInstructorStore from '../store/useInstructorStore.js';
 import { SESSION_JOIN_PREFIX } from '../../lib/sessionCode.js';
+import { emailToId, nameToId } from '../hooks/useInstructorAuth.js';
 import { DEFAULT_STUDENT_ORG_CLAIM_URL } from '../../lib/sessionLaunch.js';
 import SaveButton from './SaveButton.jsx';
 import { sessionDateInputToDisplay } from '../../lib/sessionDateLocal.js';
@@ -23,13 +24,38 @@ function genCode() {
   return code;
 }
 
+const CODE_ATTEMPTS = 5;
+
+/**
+ * Claim an unused session code and write the session under it.
+ *
+ * The four-character code space is ~1M, so collisions are rare but not
+ * impossible, and a plain `.set()` would silently overwrite whatever session
+ * already lives at that code (taking its questions subcollection with it).
+ * The transaction makes the "is it free?" check and the write atomic.
+ */
+async function createSessionWithUniqueCode(db, payload) {
+  return db.runTransaction(async (tx) => {
+    for (let i = 0; i < CODE_ATTEMPTS; i++) {
+      const code = genCode();
+      const ref = db.collection('sessions').doc(code);
+      // All reads happen before the single write, as transactions require.
+      const snap = await tx.get(ref);
+      if (!snap.exists) {
+        tx.set(ref, payload);
+        return code;
+      }
+    }
+    throw new Error('Could not find a free session code. Please try again.');
+  });
+}
+
 export default function CreateSessionModal() {
   const { db } = useFirebase();
   const open = useInstructorStore(s => s.createSessionModalOpen);
   const setOpen = useInstructorStore(s => s.setCreateSessionModalOpen);
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
-  const allSessions = useInstructorStore(s => s.allSessions);
   const setAllSessions = useInstructorStore(s => s.setAllSessions);
   const setActiveSessionCode = useInstructorStore(s => s.setActiveSessionCode);
   const showToast = useInstructorStore(s => s.showToast);
@@ -77,18 +103,6 @@ export default function CreateSessionModal() {
       return false;
     }
 
-    const code = genCode();
-    // Ownership is keyed on the stable identity (Google email), not the display name,
-    // so renaming yourself never orphans the sessions you created.
-    const state = useInstructorStore.getState();
-    const ownerId = state.instructorOwnerId
-      || (currentInstructor
-        ? currentInstructor.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-        : '');
-    // Raw lowercased verified email so Firestore rules can match request.auth.token.email
-    // directly (rules cannot reproduce emailToId). Empty when no verified email (rare/local).
-    const ownerEmail = (state.instructorEmail || '').trim().toLowerCase();
-
     // Creating a session requires a verified salesforce.com user whose email
     // matches ownerEmail (isSalesforce() + ownerEmail == verifiedEmail() in the
     // rules). Await auth before writing so it can't 403 on a pre-auth render.
@@ -97,6 +111,18 @@ export default function CreateSessionModal() {
       setError('Sign in with your salesforce.com Google account to create a session.');
       return false;
     }
+
+    // Raw lowercased verified email so Firestore rules can match
+    // request.auth.token.email directly. Read it off the verified user rather
+    // than the store, which may not have hydrated yet — an empty ownerEmail
+    // fails the create rule even though the instructor is properly signed in.
+    const ownerEmail = String(instructor.email || '').trim().toLowerCase();
+    // Ownership is keyed on the stable identity (Google email), not the display name,
+    // so renaming yourself never orphans the sessions you created.
+    const state = useInstructorStore.getState();
+    const ownerId = emailToId(ownerEmail)
+      || state.instructorOwnerId
+      || nameToId(currentInstructor || '');
 
     setLoading(true);
     const sessionPayload = {
@@ -126,7 +152,7 @@ export default function CreateSessionModal() {
     };
 
     try {
-      await db.collection('sessions').doc(code).set(sessionPayload);
+      const code = await createSessionWithUniqueCode(db, sessionPayload);
       const doc = await db.collection('sessions').doc(code).get();
       if (!doc.exists) {
         setError('Session was created but could not be loaded. Refresh the page.');
@@ -148,7 +174,8 @@ export default function CreateSessionModal() {
       showToast('Session created: ' + code);
       return true;
     } catch (e) {
-      setError('Error: ' + (e && e.message ? e.message : String(e)));
+      console.warn('Session create failed:', e);
+      setError('Could not create the session. Check your connection and try again.');
       return false;
     } finally {
       setLoading(false);

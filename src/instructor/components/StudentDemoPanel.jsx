@@ -3,11 +3,10 @@
  * Preview only — no Firestore writes. Uses allQuestions from the store.
  * safe: user content is HTML-escaped by esc() inside formatRichMessage
  */
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { formatRichMessage } from '../../lib/richText.js';
 import { htmlAnsweredStatusBadges } from '../../lib/answeredBadge.js';
 import useInstructorStore from '../store/useInstructorStore.js';
-import { insertSlackFormat, insertEmoji } from './FormatToolbar.jsx';
 
 const SDEMO_USER_ID = 'demo-student-' + Math.random().toString(36).slice(2, 8);
 

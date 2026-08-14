@@ -19,7 +19,6 @@ export default function JoinSessionModal() {
   const open = useInstructorStore(s => s.joinSessionModalOpen);
   const setOpen = useInstructorStore(s => s.setJoinSessionModalOpen);
   const currentInstructor = useInstructorStore(s => s.currentInstructor);
-  const allSessions = useInstructorStore(s => s.allSessions);
   const setAllSessions = useInstructorStore(s => s.setAllSessions);
   const setActiveSessionCode = useInstructorStore(s => s.setActiveSessionCode);
   const showToast = useInstructorStore(s => s.showToast);
@@ -115,7 +114,8 @@ export default function JoinSessionModal() {
       showToast('Joined session ' + code);
       return true;
     } catch (e) {
-      setError('Error: ' + e.message);
+      console.warn('Join session failed:', e);
+      setError('Could not join that session. Check your connection and try again.');
       return false;
     }
   };

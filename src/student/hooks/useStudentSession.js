@@ -191,7 +191,7 @@ export function useStudentSession() {
       try { document.documentElement.classList.remove('std-restoring-session'); } catch (e) {}
       setAppState('app');
     }).catch(() => { bailToJoin(); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [db]);
 
   // --- Live session listener (re-subscribes when sessionCode or db changes) ---

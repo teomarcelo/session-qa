@@ -1,27 +1,64 @@
 rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session Q&A — Cloud Storage security rules (identity-enforced)
+//
+// SECURITY MODEL (read before editing):
+// Mirrors firestore.rules. The web client authenticates with Firebase Auth:
+//   - Students get a silent ANONYMOUS identity (established on session join),
+//     so every student upload carries a uid.
+//   - Instructors sign in with Google; instructor-only paths require a VERIFIED
+//     @salesforce.com email.
+// Reads stay public: students load session images without signing in first.
+//
+// Writes MUST be gated on an identity. Leaving them open lets anyone on the
+// internet burn storage and egress on this project, since the bucket name ships
+// in the client bundle.
+//
+// DEPLOY: changes here are NOT live until you run
+//   firebase deploy --only storage
+// ─────────────────────────────────────────────────────────────────────────────
+
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Session images: question pastes and answer pastes
-    // This app has no Firebase Auth — all users are anonymous.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // A verified salesforce.com instructor (same test as firestore.rules).
+    function isSalesforce() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.lower().matches('^[^@]+@salesforce[.]com$');
+    }
+
+    // An upload of an acceptably small JPEG. Event-scale images are resized
+    // client-side before upload. `request.resource` is null on delete, so this
+    // is false for deletes — removal is not a client operation.
+    function isJpegUpload() {
+      return request.resource != null
+        && request.resource.size <= 8 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+
+    // Question images: pasted by students, so any signed-in identity qualifies.
     match /sessions/{sessionId}/question_paste/{filename} {
       allow read: if true;
-      // Only JPEG uploads up to 8 MB (event-scale images are resized client-side before upload)
-      allow write: if request.resource.size <= 8 * 1024 * 1024
-                   && request.resource.contentType == 'image/jpeg';
+      allow write: if isSignedIn() && isJpegUpload();
     }
 
+    // Answer images: pasted by instructors when replying to a question.
     match /sessions/{sessionId}/answer_paste/{filename} {
       allow read: if true;
-      allow write: if request.resource.size <= 8 * 1024 * 1024
-                   && request.resource.contentType == 'image/jpeg';
+      allow write: if isSalesforce() && isJpegUpload();
     }
 
-    // Instructor session note images (paste uploads from the notes editor)
+    // Instructor session note images (paste uploads from the notes editor).
     match /sessions/{sessionId}/images/{filename} {
       allow read: if true;
-      allow write: if request.resource.size <= 8 * 1024 * 1024
-                   && request.resource.contentType == 'image/jpeg';
+      allow write: if isSalesforce() && isJpegUpload();
     }
 
     // Deny everything else

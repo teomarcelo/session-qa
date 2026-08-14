@@ -32,7 +32,7 @@ if (configReady && APPCHECK_SITE_KEY) {
     // Debug token flow for local development only. Firebase reads this global
     // before activate() runs; the printed token is registered in the console.
     if (import.meta.env.VITE_APPCHECK_DEBUG) {
-      // eslint-disable-next-line no-undef
+       
       self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     }
     const appCheck = firebase.appCheck();

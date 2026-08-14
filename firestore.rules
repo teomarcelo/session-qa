@@ -31,24 +31,33 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Lowercased verified email of the requester (safe only when signed in with
-    // an email). Session ownership fields are stored lowercased to match this.
+    // Lowercased verified email of the requester. Anonymous students have no
+    // email claim at all, so read it with a default rather than by property
+    // access: a missing claim would otherwise raise an evaluation error instead
+    // of cleanly evaluating to false.
     function verifiedEmail() {
-      return request.auth.token.email.lower();
+      return request.auth.token.get('email', '').lower();
     }
 
     // A verified salesforce.com instructor.
     function isSalesforce() {
       return isSignedIn()
-        && request.auth.token.email_verified == true
-        && request.auth.token.email is string
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '') is string
         && verifiedEmail().matches('^[^@]+@salesforce[.]com$');
     }
 
     // Session ownership (owner OR listed co-instructor), by verified email.
+    // Every field is `in`-guarded before it is read: legacy docs are missing
+    // these keys, and a bare property access on a missing key raises an
+    // evaluation error rather than returning false.
     function ownsSession(data) {
-      return (data.ownerEmail is string && data.ownerEmail == verifiedEmail())
-        || (data.instructorEmails is list && verifiedEmail() in data.instructorEmails);
+      return (('ownerEmail' in data)
+              && data.ownerEmail is string
+              && data.ownerEmail == verifiedEmail())
+        || (('instructorEmails' in data)
+            && data.instructorEmails is list
+            && verifiedEmail() in data.instructorEmails);
     }
 
     // Legacy session without email ownership fields (pre-backfill) — tolerated.
@@ -56,21 +65,129 @@ service cloud.firestore {
       return !('ownerEmail' in data);
     }
 
+    // Ownership check for a session addressed by id. Needed from subcollections,
+    // where resource.data is the child document rather than the session. Costs
+    // one extra document read per evaluation (Firestore caches repeats of the
+    // same get() within a single evaluation).
+    function sessionData(sessionId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+    }
+
+    function instructsSession(sessionId) {
+      return exists(/databases/$(database)/documents/sessions/$(sessionId))
+        && (ownsSession(sessionData(sessionId)) || legacySession(sessionData(sessionId)));
+    }
+
+    // Co-instructor allow-list / display roster already on the session. Missing
+    // on very old docs, so both are read defensively.
+    function priorInstructorEmails(before) {
+      return ('instructorEmails' in before) && (before.instructorEmails is list)
+        ? before.instructorEmails
+        : [];
+    }
+
+    function priorInstructorNames(before) {
+      return ('instructors' in before) && (before.instructors is list)
+        ? before.instructors
+        : [];
+    }
+
+    // The display roster may grow but never shrink, so joining cannot be used to
+    // hide the instructors already listed on a session.
+    function rosterOnlyGrows(before, after) {
+      return !after.diff(before).affectedKeys().hasAny(['instructors'])
+        || (('instructors' in after)
+            && after.instructors is list
+            && after.instructors.hasAll(priorInstructorNames(before)));
+    }
+
+    function rosterLabelOk(before, after) {
+      return !after.diff(before).affectedKeys().hasAny(['instructorNames'])
+        || (('instructorNames' in after)
+            && after.instructorNames is string
+            && after.instructorNames.size() <= 2000);
+    }
+
     // Verified salesforce instructor adding THEMSELVES as a co-instructor. Lets
     // the automatic "join session" co-instructor flow work without a server.
+    //
+    // Scoped to exactly the three roster fields JoinSessionModal writes. Without
+    // that scope a "join" doubles as a way to edit any session's content, evict
+    // the existing instructors, or drop ownerEmail — and a session with no
+    // ownerEmail is a legacy doc that legacySession() lets ANY salesforce user
+    // rewrite or delete.
     // (Co-instructor management moves to a Cloud Function in a later phase.)
     function joiningSelf(before, after) {
-      return after.instructorEmails is list
+      return after.diff(before).affectedKeys()
+               .hasOnly(['instructorEmails', 'instructors', 'instructorNames'])
+        && ('instructorEmails' in after)
+        && after.instructorEmails is list
         && verifiedEmail() in after.instructorEmails
-        && (!('ownerEmail' in after) || after.ownerEmail == before.ownerEmail);
+        // Only the caller may be added, and nobody may be removed.
+        && after.instructorEmails.hasAll(priorInstructorEmails(before))
+        && after.instructorEmails.hasOnly(
+             priorInstructorEmails(before).concat([verifiedEmail()])
+           )
+        && rosterOnlyGrows(before, after)
+        && rosterLabelOk(before, after);
+    }
+
+    // ── Vote integrity ───────────────────────────────────────────────────────
+    // Anonymous identities are unlimited, so rules cannot stop a determined
+    // sockpuppet campaign (App Check is the lever for that). What they can do is
+    // make a single write incapable of forging a tally or erasing other people's
+    // votes: `votes` moves by exactly ±1, and the only entry added to or removed
+    // from `voters` is the caller's own uid.
+
+    function voterList(data) {
+      return ('voters' in data) && (data.voters is list) ? data.voters : [];
+    }
+
+    function voteCount(data) {
+      return ('votes' in data) && (data.votes is int) ? data.votes : 0;
+    }
+
+    function addsOwnVote(before, after) {
+      return !(request.auth.uid in voterList(before))
+        && request.auth.uid in after.voters
+        && after.voters.hasAll(voterList(before))
+        && after.voters.hasOnly(voterList(before).concat([request.auth.uid]))
+        && after.votes == voteCount(before) + 1;
+    }
+
+    function removesOwnVote(before, after) {
+      return (request.auth.uid in voterList(before))
+        && !(request.auth.uid in after.voters)
+        && voterList(before).hasAll(after.voters)
+        && voterList(before).hasOnly(after.voters.concat([request.auth.uid]))
+        && after.votes == voteCount(before) - 1;
+    }
+
+    function togglesOwnVote(before, after) {
+      return isSignedIn()
+        && after.diff(before).affectedKeys().hasOnly(['votes', 'voters'])
+        && ('voters' in after) && after.voters is list
+        && ('votes' in after) && after.votes is int
+        && (addsOwnVote(before, after) || removesOwnVote(before, after));
+    }
+
+    // The doc id the client derives from a verified email: lowercased, with runs
+    // of non-alphanumerics collapsed to underscores (emailToId in the client).
+    // e.g. teacher@salesforce.com → teacher_salesforce_com
+    function ownInstructorDocId() {
+      return verifiedEmail().split('[^a-z0-9]+').join('_');
     }
 
     // Instructor accounts (display name + hashed PIN, joined-session lists).
-    // Written by the co-instructor "join" flow via update/set(merge). Readable
-    // so the login/PIN lookup works. Never client-deletable.
+    // Written by the co-instructor "join" flow via update/set(merge).
+    //
+    // Reads are restricted to signed-in instructors: these docs carry pinHash,
+    // and a public read lets anyone dump every hash for offline cracking. Writes
+    // are bound to the caller's own account so one instructor cannot overwrite
+    // another's PIN or display name. Never client-deletable.
     match /instructors/{instructorId} {
-      allow read: if true;
-      allow create, update: if isSalesforce();
+      allow read: if isSalesforce();
+      allow create, update: if isSalesforce() && instructorId == ownInstructorDocId();
       allow delete: if false;
     }
 
@@ -88,7 +205,11 @@ service cloud.firestore {
 
       // Update: owner or co-instructor; legacy (pre-backfill) sessions tolerated;
       // and a salesforce instructor self-joining as co-instructor.
-      allow update: if isSalesforce()
+      // `resource` is null when the target does not exist (a .set() is checked
+      // against both create and update); guard it so this reads as false rather
+      // than raising an evaluation error.
+      allow update: if resource != null
+        && isSalesforce()
         && (
           ownsSession(resource.data)
           || legacySession(resource.data)
@@ -108,6 +229,15 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll(
               ['text', 'authorName', 'authorId', 'createdAt', 'status', 'pinned', 'votes', 'voters']
             )
+          // Closed field set: without this, arbitrary extra fields (including
+          // large blobs) can be stuffed onto a question at creation time.
+          && request.resource.data.keys().hasOnly([
+              'text', 'authorName', 'authorEmail', 'authorId', 'authorUid',
+              'createdAt', 'status', 'pinned', 'votes', 'voters', 'answer', 'imageUrls'
+            ])
+          && (!('imageUrls' in request.resource.data)
+              || (request.resource.data.imageUrls is list
+                  && request.resource.data.imageUrls.size() <= 10))
           && request.resource.data.authorUid is string
           && request.resource.data.authorUid == request.auth.uid
           && request.resource.data.text is string
@@ -124,20 +254,22 @@ service cloud.firestore {
 
         // Update paths:
         //  - salesforce instructor: full update (answer / pin / status / etc.)
-        //  - any signed-in user: upvote (only votes + voters change)
+        //  - any signed-in user: toggle THEIR OWN upvote
         //  - question author: edit own text only (tolerates legacy w/o authorUid
         //    by simply not matching — legacy questions just aren't self-editable)
-        allow update: if isSalesforce()
-          || (
-            isSignedIn()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes', 'voters'])
-          )
+        allow update: if resource != null && (
+          isSalesforce()
+          || togglesOwnVote(resource.data, request.resource.data)
           || (
             isSignedIn()
             && ('authorUid' in resource.data)
             && resource.data.authorUid == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
-          );
+            && request.resource.data.text is string
+            // Same cap as create; without it an edit can grow past the limit.
+            && request.resource.data.text.size() <= 10000
+          )
+        );
 
         // Delete: salesforce instructor only (dashboard action; audited via a
         // Cloud Function in a later phase). Students/anon cannot delete.
@@ -146,9 +278,10 @@ service cloud.firestore {
 
       // Anonymous student dashboard feedback (path implies session; no email stored).
       // Requires a signed-in identity (token) + the existing exact-shape validation.
-      // Read is restricted to salesforce instructors (feedback is not public).
+      // Read is restricted to the session's own instructors (feedback is not
+      // public, and it is not every salesforce employee's to read either).
       match /sessionFeedback/{docId} {
-        allow read: if isSalesforce();
+        allow read: if isSalesforce() && instructsSession(sessionId);
         allow create: if isSignedIn()
           && request.resource.data.keys().hasAll(['subject', 'body', 'submittedAtMs'])
           && request.resource.data.size() == 3

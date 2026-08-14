@@ -6,7 +6,7 @@ import {
   getStudentOrgClaimCodeOnly,
   sessionShowsSurveyOnStudent,
 } from '../../lib/sessionLaunch.js';
-import { isHttpsUrl, isHttpOrHttpsUrl } from '../../lib/richText.js';
+import { isHttpOrHttpsUrl } from '../../lib/richText.js';
 import { getSessionInstructorRoster } from '../../lib/sessionInstructors.js';
 
 /** Display title for top bar + session card. */

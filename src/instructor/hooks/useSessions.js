@@ -18,8 +18,6 @@ export function useSessions() {
   const instructorOwnerId = useInstructorStore(s => s.instructorOwnerId);
   const instructorLegacyOwnerId = useInstructorStore(s => s.instructorLegacyOwnerId);
   const isDemoMode = useInstructorStore(s => s.isDemoMode);
-  const allSessions = useInstructorStore(s => s.allSessions);
-  const activeSessionCode = useInstructorStore(s => s.activeSessionCode);
 
   // Load sessions when instructor logs in
   useEffect(() => {
@@ -96,7 +94,7 @@ export function useSessions() {
         console.error('loadSessions error:', err);
         useInstructorStore.getState().setAllSessions([]);
         useInstructorStore.getState().setInstructorSessionsHydrated(true);
-        useInstructorStore.getState().showToast('Error loading sessions: ' + err.message);
+        useInstructorStore.getState().showToast('Could not load your sessions. Check your connection.');
       });
 
     unsubRef.current = unsub;
@@ -176,7 +174,8 @@ export function useSessions() {
         sessionsHiddenFromList: firebase.firestore.FieldValue.arrayUnion(sessionCode),
       }, { merge: true });
     } catch (e) {
-      useInstructorStore.getState().showToast('Could not update list: ' + (e.message || e));
+      console.warn('Hide session failed:', e);
+      useInstructorStore.getState().showToast('Could not update your session list. Try again.');
       return;
     }
     finishHide();

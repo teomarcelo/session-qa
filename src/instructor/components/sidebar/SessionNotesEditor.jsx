@@ -534,7 +534,8 @@ export default function SessionNotesEditor() {
       showToast('Session notes saved.');
       return true;
     } catch (e) {
-      showToast('Error: ' + e.message);
+      console.warn('Save session notes failed:', e);
+      showToast('Could not save your notes. Try again.');
       return false;
     }
   };

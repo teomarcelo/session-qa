@@ -54,7 +54,8 @@ export default function InstructorManager() {
       ));
       showToast(name + ' removed.');
     } catch (e) {
-      showToast('Error: ' + e.message);
+      console.warn('Remove co-instructor failed:', e);
+      showToast('Could not remove that instructor. Try again.');
     }
   };
 

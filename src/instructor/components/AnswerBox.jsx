@@ -14,7 +14,6 @@ export default function AnswerBox({ qId, isEditing, onCancelEdit }) {
   const setAnswerDraft = useInstructorStore(s => s.setAnswerDraft);
   const pendingImages = useInstructorStore(s => s.pendingAnswerImages[qId] ?? EMPTY_ARR);
   const setPendingAnswerImages = useInstructorStore(s => s.setPendingAnswerImages);
-  const showToast = useInstructorStore(s => s.showToast);
 
   const removePendingImage = (url) => {
     const updated = pendingImages.filter(u => u !== url);
@@ -45,7 +44,7 @@ export default function AnswerBox({ qId, isEditing, onCancelEdit }) {
         <div className="answer-paste-preview" id={`ans-prev-${qId}`}>
           {pendingImages.map(url => (
             <span key={url} className="paste-preview-item">
-              <img src={url} alt="" />
+              <img src={url} alt="" referrerPolicy="no-referrer" />
               <button
                 type="button"
                 className="paste-preview-remove"

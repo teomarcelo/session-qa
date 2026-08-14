@@ -1,4 +1,3 @@
-import './globals.css';
 import styles from './hub.module.css';
 import { getServerSession } from '../lib/getServerSession.js';
 

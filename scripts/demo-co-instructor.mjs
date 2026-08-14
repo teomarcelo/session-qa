@@ -60,7 +60,7 @@ async function mutate(action, code, name) {
   const d = await getDoc(ref);
   if (!d.exists()) { console.error(`Session ${code} not found.`); process.exit(1); }
   const roster = rosterOf(d.data());
-  let next = roster;
+  let next;
   if (action === 'add') {
     if (roster.includes(name)) { console.log(`${name} already on ${code}.`); return; }
     next = [...roster, name];

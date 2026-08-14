@@ -13,7 +13,7 @@ to `salesforce.com`" is effectively Salesforce SSO.
 - `/instructor` → **protected** (requires an `@salesforce.com` session).
 - `/`, `/student`, `/login`, `/api/auth/*`, static assets → **public** (students
   are external customers and must never be forced to log in). See
-  [`middleware.js`](middleware.js).
+  [`proxy.js`](proxy.js).
 
 ## Runbook
 
@@ -69,10 +69,10 @@ Recommended options, most secure first:
 
 1. **Inline the instructor React app into Next.js (Phase 2).** Move the Vite
    instructor components into `app/instructor/` so they render same-origin behind
-   the middleware. Best security; most work.
+   the proxy. Best security; most work.
 2. **Serve the built instructor bundle from behind Next.js.** Copy the Vite
    `dist/` instructor assets into this app and serve them under the protected
-   `/instructor` route so `middleware.js` gates them. Medium work.
+   `/instructor` route so `proxy.js` gates them. Medium work.
 3. **Student bundle only on a public origin.** The student app is public anyway,
    so it can stay on GitHub Pages / any static host. Point `VITE_APP_ORIGIN` at it
    for `/student`, but do **not** rely on that origin for `/instructor`.

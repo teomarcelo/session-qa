@@ -22,7 +22,7 @@ import useStudentDemoStore, { IS_STUDENT_DEMO } from '../demo/useStudentDemoStor
  * `pollSkipUntilRef` is retained for signature/coordination with useUpvote but
  * is no longer used to gate a polling interval (there is none).
  */
-export function useQuestions(sessionCode, pollSkipUntilRef) { // eslint-disable-line no-unused-vars
+export function useQuestions(sessionCode, pollSkipUntilRef) {  
   const { db } = useFirebase();
 
   // Demo mode: the board is driven entirely by the in-memory demo store. This

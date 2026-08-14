@@ -57,8 +57,6 @@ export default function QuestionsList() {
   const instructorSessionsHydrated = useInstructorStore(s => s.instructorSessionsHydrated);
   const allSessions = useInstructorStore(s => s.allSessions);
   const instructorOlderBeyondLoadExhausted = useInstructorStore(s => s.instructorOlderBeyondLoadExhausted);
-  const questionsLoading = useInstructorStore(s => s.questionsLoading);
-  const setCurrentFilter = useInstructorStore(s => s.setCurrentFilter);
   const setCurrentSort = useInstructorStore(s => s.setCurrentSort);
   const setSearchQuery = useInstructorStore(s => s.setSearchQuery);
 

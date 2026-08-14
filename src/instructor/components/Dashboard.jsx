@@ -275,9 +275,9 @@ class DashboardErrorBoundary extends Component {
 
 // ── Dashboard component ────────────────────────────────────────
 function DashboardInner() {
-  const { db, storage } = useFirebase();
+  const { storage } = useFirebase();
   const { logout, setGlobalDisplayName, renameInSession } = useInstructorAuth();
-  const { updateStats, cancelPending, runRefresh } = useSessionStats();
+  const { updateStats, cancelPending } = useSessionStats();
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -297,7 +297,6 @@ function DashboardInner() {
   const setSessionNotesDraft = useInstructorStore(s => s.setSessionNotesDraft);
   const setSessionNoteShow = useInstructorStore(s => s.setSessionNoteShow);
   const setPendingAnswerImages = useInstructorStore(s => s.setPendingAnswerImages);
-  const pendingAnswerImages = useInstructorStore(s => s.pendingAnswerImages);
   const closeDeleteModal = useInstructorStore(s => s.closeDeleteModal);
   const setJoinSessionModalOpen = useInstructorStore(s => s.setJoinSessionModalOpen);
   const setCreateSessionModalOpen = useInstructorStore(s => s.setCreateSessionModalOpen);
@@ -446,13 +445,15 @@ function DashboardInner() {
         : (arr.length > 1 ? i !== arr.length - 1 : false),
     })));
     setSessionNoteShow(s.sessionNoteShow !== false);
-  }, [activeSessionCode, allSessions]);
+  }, [activeSessionCode, allSessions, setSessionNotesDraft, setSessionNoteShow]);
 
-  // Trigger stats refresh when questions change
+  // Trigger stats refresh when questions change. updateStats/cancelPending are
+  // useCallback'd over a memoized `db`, so they are stable and do not re-fire
+  // this effect.
   useEffect(() => {
     updateStats();
     return () => cancelPending();
-  }, [questionPages, activeSessionCode]);
+  }, [questionPages, activeSessionCode, updateStats, cancelPending]);
 
   // Handle reset demo — delegates to the shared helper used by both Reset Demo
   // buttons (top bar here + the student-view overlay) so they never drift.
@@ -471,7 +472,7 @@ function DashboardInner() {
     let logoutUrl = '';
     try {
       logoutUrl = (new URLSearchParams(window.location.search).get('sso_logout') || '').trim();
-    } catch (e) { logoutUrl = ''; }
+    } catch (e) { /* malformed query string: treat as no gateway logout */ }
     if (logoutUrl) {
       try {
         window.top.location.href = logoutUrl;

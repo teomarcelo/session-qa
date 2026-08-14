@@ -13,12 +13,38 @@ export function linkify(text) {
   );
 }
 
+const URL_TAIL_PUNCTUATION = '*_~.,;:!?';
+
+/**
+ * Split trailing punctuation off an auto-detected URL. A trailing `.` or `*` is
+ * far more likely to be prose or emphasis markup than part of the link:
+ * "see https://x.com." and "*https://x.com*" should both link to the bare URL.
+ * A closing paren is only trimmed when it is unbalanced, so links like
+ * https://en.wikipedia.org/wiki/Foo_(bar) survive intact.
+ */
+function splitUrlTail(url) {
+  let core = url;
+  let tail = '';
+  while (core) {
+    const last = core[core.length - 1];
+    const unbalancedParen =
+      last === ')' && (core.split('(').length - 1) < (core.split(')').length - 1);
+    if (!URL_TAIL_PUNCTUATION.includes(last) && !unbalancedParen) break;
+    tail = last + tail;
+    core = core.slice(0, -1);
+  }
+  return { core, tail };
+}
+
 /** Slack-style: *bold*, _italic_, ~strike~, `inline code`, fenced ``` blocks, [label](url) links. */
 export function formatRichMessage(raw) {
-  let s = String(raw || '');
-  const chunks = [];
   const PH = '\uFFF0';
   const PH2 = '\uFFF1';
+  // These sentinels mark extracted chunks below. They are typeable characters,
+  // so strip them from the input first: otherwise crafted text could reference
+  // a chunk it did not author.
+  let s = String(raw || '').split(PH).join('').split(PH2).join('');
+  const chunks = [];
   const copySvg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   s = s.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (_m, _lang, code) => {
@@ -56,10 +82,21 @@ export function formatRichMessage(raw) {
     return PH + 'R' + i + PH2;
   });
   s = esc(s);
+  // Pull bare URLs out before emphasis runs. Underscores and asterisks are
+  // ordinary URL characters, so `https://x.com/a_b_c` would otherwise become
+  // `https://x.com/a<em>b</em>c` and linkify would then stop at the `<`.
+  // The placeholder sentinels are excluded so a URL sitting directly against an
+  // already-extracted chunk cannot swallow its marker.
+  s = s.replace(/(https?:\/\/[^\s<>"'\uFFF0\uFFF1]+)/g, (_m, url) => {
+    const { core, tail } = splitUrlTail(url);
+    if (!core) return url;
+    const i = chunks.length;
+    chunks.push(linkify(core));
+    return PH + 'R' + i + PH2 + tail;
+  });
   s = s.replace(/\*(?!\*)([\s\S]*?)\*(?!\*)/g, '<strong>$1</strong>');
   s = s.replace(/_([^_\n]+)_/g, '<em>$1</em>');
   s = s.replace(/~([^~\n]+)~/g, '<del>$1</del>');
-  s = linkify(s);
   s = s.replace(/\uFFF0R(\d+)\uFFF1/g, (_m, n) => chunks[parseInt(n, 10)] || '');
   return s;
 }

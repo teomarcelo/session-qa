@@ -1,4 +1,4 @@
-import { esc, formatRichMessage, isHttpsUrl } from '../../lib/richText.js';
+import { formatRichMessage, isHttpsUrl } from '../../lib/richText.js';
 import { formatQuestionWhen } from '../../lib/formatQuestionWhen.js';
 import { htmlAnsweredStatusBadges } from '../../lib/answeredBadge.js';
 import { currentUid } from '../../lib/auth.js';

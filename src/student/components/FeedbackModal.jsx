@@ -78,7 +78,8 @@ export default function FeedbackModal({ sessionCode, onClose, showToast, isDemoM
           'Could not send feedback: Firestore blocked the write. Deploy firestore.rules (sessions/{id}/sessionFeedback) to your Firebase project, then try again.',
         );
       } else {
-        showToast('Could not send feedback: ' + (e && e.message ? e.message : String(e)));
+        console.warn('Send feedback failed:', e);
+        showToast('Could not send your feedback. Try again.');
       }
     }
   }

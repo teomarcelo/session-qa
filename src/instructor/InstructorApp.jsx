@@ -62,7 +62,9 @@ export default function InstructorApp() {
       setCurrentInstructor(savedName);
       setInstructorIdentity({ ownerId: nameToId(savedName) });
     }
-  }, []);
+    // The store actions are stable for the life of the store, so listing them
+    // keeps this a first-mount-only effect (restoredRef guards it regardless).
+  }, [setCurrentInstructor, setInstructorIdentity, setIsDemoMode]);
 
   // 3) Firebase Auth listener — the trusted identity source.
   useEffect(() => {

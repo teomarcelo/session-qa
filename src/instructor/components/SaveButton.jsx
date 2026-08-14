@@ -36,7 +36,7 @@ export default function SaveButton({
     if (status === 'saving' || disabled) return;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     setStatus('saving');
-    let ok = true;
+    let ok;
     try {
       const res = await onClick?.(e);
       ok = res !== false;

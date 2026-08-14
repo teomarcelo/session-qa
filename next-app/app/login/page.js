@@ -1,4 +1,3 @@
-import '../globals.css';
 import styles from './login.module.css';
 
 const ERROR_MESSAGES = {

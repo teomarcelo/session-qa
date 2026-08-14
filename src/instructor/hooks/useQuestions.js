@@ -116,7 +116,8 @@ export function useQuestions() {
       useInstructorStore.getState().setCurrentPage(nextIdx);
     } catch (e) {
       console.error('Load older questions failed:', e);
-      useInstructorStore.getState().showToast('Error loading older questions: ' + e.message);
+      console.warn('Load older questions failed:', e);
+      useInstructorStore.getState().showToast('Could not load older questions. Try again.');
     } finally {
       useInstructorStore.getState().setQuestionsLoading(false);
     }

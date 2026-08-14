@@ -71,13 +71,28 @@ export async function exchangeCode(code) {
  *
  * Returns the decoded payload on success; throws on any failure.
  */
+/**
+ * Google's JWKS, created once per process. createRemoteJWKSet caches and
+ * rotates keys internally, so rebuilding it per sign-in would refetch the
+ * certs every time.
+ */
+let jwksPromise = null;
+function getJwks() {
+  if (!jwksPromise) {
+    jwksPromise = import('jose').then(({ createRemoteJWKSet }) =>
+      createRemoteJWKSet(new URL(GOOGLE_CERTS_URL))
+    );
+  }
+  return jwksPromise;
+}
+
 export async function validateIdToken(idToken, expectedNonce) {
-  const { createRemoteJWKSet, jwtVerify } = await import('jose');
+  const { jwtVerify } = await import('jose');
 
   const clientId = requireEnv('GOOGLE_CLIENT_ID');
   const allowedDomain = requireEnv('ALLOWED_DOMAIN');
 
-  const JWKS = createRemoteJWKSet(new URL(GOOGLE_CERTS_URL));
+  const JWKS = await getJwks();
 
   const { payload } = await jwtVerify(idToken, JWKS, {
     issuer: GOOGLE_ISSUER,

@@ -121,7 +121,7 @@ export async function signInInstructorWithGoogle() {
     const result = await auth.signInWithPopup(provider);
     return result.user;
   } catch (err) {
-    throw new Error(friendlyAuthError(err));
+    throw new Error(friendlyAuthError(err), { cause: err });
   }
 }
 

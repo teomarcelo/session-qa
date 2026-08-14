@@ -37,7 +37,7 @@ function deriveFormFromSession(s) {
   const dateObj = firestoreDateLikeToDate(s.sessionDate);
   const date = dateObj ? formatDateInputLocal(dateObj) : '';
   const timeObj = firestoreDateLikeToDate(s.sessionTime);
-  let time = '';
+  let time;
   if (timeObj) {
     time = `${String(timeObj.getHours()).padStart(2, '0')}:${String(timeObj.getMinutes()).padStart(2, '0')}`;
   } else {
@@ -170,7 +170,8 @@ export default function SessionSettings() {
       showToast('Session info saved!');
       return true;
     } catch (e) {
-      showToast('Could not save session: ' + (e && e.message ? e.message : String(e)));
+      console.warn('Save session settings failed:', e);
+      showToast('Could not save the session. Try again.');
       return false;
     }
   };

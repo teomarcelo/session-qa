@@ -1,4 +1,3 @@
-import '../globals.css';
 import styles from './app.module.css';
 import { getServerSession } from '../../lib/getServerSession.js';
 import { requireEnv } from '../../lib/env.js';

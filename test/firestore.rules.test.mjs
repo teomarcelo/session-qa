@@ -281,6 +281,343 @@ test('feedback: only salesforce instructors can read feedback', async () => {
   await assertFails(anon('stud1').collection('sessions').doc('SQA-F2').collection('sessionFeedback').doc('f1').get());
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Session takeover via the co-instructor "join" path.
+// A verified salesforce identity is a large trust boundary (every employee), so
+// self-joining must not double as a way to edit or seize someone else's session.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Session owned by SF_EMAIL with SF2_EMAIL already on the roster. */
+async function seedOwnedSession(code) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('sessions').doc(code).set({
+      sessionName: 'Owned',
+      ownerEmail: SF_EMAIL,
+      instructorEmails: [SF_EMAIL, SF2_EMAIL],
+      instructors: ['Teacher', 'Coteacher'],
+      instructorNames: 'Teacher, Coteacher',
+    });
+  });
+}
+
+const MALLORY = 'mallory@salesforce.com';
+
+test('sessions: self-join cannot smuggle content edits into the same write', async () => {
+  await testEnv.clearFirestore();
+  await seedOwnedSession('SQA-HJ1');
+  const { arrayUnion } = await loadFieldValue();
+  await assertFails(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ1').update({
+      instructorEmails: arrayUnion(MALLORY),
+      sessionName: 'Hijacked',
+    }),
+  );
+});
+
+test('sessions: self-join cannot delete ownerEmail (legacy-doc escalation)', async () => {
+  await testEnv.clearFirestore();
+  await seedOwnedSession('SQA-HJ2');
+  const { deleteField } = await loadFieldValue();
+  // Dropping ownerEmail would demote the session to a "legacy" doc, which
+  // legacySession() then lets ANY salesforce user rewrite or delete.
+  await assertFails(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ2').update({
+      instructorEmails: [MALLORY],
+      ownerEmail: deleteField(),
+    }),
+  );
+});
+
+test('sessions: self-join cannot drop existing instructors from the roster', async () => {
+  await testEnv.clearFirestore();
+  await seedOwnedSession('SQA-HJ3');
+  // Replacing (rather than appending to) instructorEmails evicts the owner and
+  // co-instructor from the allow-list.
+  await assertFails(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ3').update({
+      instructorEmails: [MALLORY],
+    }),
+  );
+  await assertFails(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ3').update({
+      instructorEmails: [SF_EMAIL, SF2_EMAIL, MALLORY],
+      instructors: ['Mallory'],
+      instructorNames: 'Mallory',
+    }),
+  );
+});
+
+test('sessions: self-join cannot add someone other than the caller', async () => {
+  await testEnv.clearFirestore();
+  await seedOwnedSession('SQA-HJ4');
+  const { arrayUnion } = await loadFieldValue();
+  await assertFails(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ4').update({
+      instructorEmails: arrayUnion(MALLORY, 'accomplice@salesforce.com'),
+    }),
+  );
+});
+
+test('sessions: the real join flow (roster + email append) still works', async () => {
+  await testEnv.clearFirestore();
+  await seedOwnedSession('SQA-HJ5');
+  const { arrayUnion } = await loadFieldValue();
+  // Exactly what JoinSessionModal writes: append the display name to the roster
+  // and the verified email to the allow-list, in one update.
+  await assertSucceeds(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ5').update({
+      instructors: ['Teacher', 'Coteacher', 'Mallory'],
+      instructorNames: 'Teacher, Coteacher, Mallory',
+      instructorEmails: arrayUnion(MALLORY),
+    }),
+  );
+  // ...and once joined, they are a co-instructor with normal edit rights.
+  await assertSucceeds(
+    salesforce('mal', MALLORY).collection('sessions').doc('SQA-HJ5').update({ room: 'Hall F' }),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Instructor accounts: display name + PIN hash + joined-session lists.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Doc id the app derives from a verified email (see emailToId in the client). */
+const SF_DOC_ID = 'teacher_salesforce_com';
+
+async function seedInstructorDoc(id = SF_DOC_ID) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('instructors').doc(id).set({
+      displayName: 'Teacher',
+      pinHash: 'deadbeef',
+      joinedSessions: [],
+      sessionsHiddenFromList: [],
+    });
+  });
+}
+
+test('instructors: unauthenticated read is denied (PIN hashes are not public)', async () => {
+  await testEnv.clearFirestore();
+  await seedInstructorDoc();
+  await assertFails(unauthed().collection('instructors').doc(SF_DOC_ID).get());
+  await assertFails(anon('stud1').collection('instructors').doc(SF_DOC_ID).get());
+});
+
+test('instructors: a verified salesforce instructor can read', async () => {
+  await testEnv.clearFirestore();
+  await seedInstructorDoc();
+  await assertSucceeds(salesforce().collection('instructors').doc(SF_DOC_ID).get());
+});
+
+test('instructors: cannot write another instructor account', async () => {
+  await testEnv.clearFirestore();
+  await seedInstructorDoc();
+  // Overwriting someone else's pinHash / displayName must be denied.
+  await assertFails(
+    salesforce('mal', MALLORY).collection('instructors').doc(SF_DOC_ID).update({
+      pinHash: 'attacker-controlled',
+    }),
+  );
+  await assertFails(
+    salesforce('mal', MALLORY)
+      .collection('instructors')
+      .doc(SF_DOC_ID)
+      .set({ displayName: 'Mallory', pinHash: 'x' }, { merge: true }),
+  );
+});
+
+test('instructors: can write their own email-derived account doc', async () => {
+  await testEnv.clearFirestore();
+  const { arrayUnion } = await loadFieldValue();
+  // Create (first join) and then update, exactly as the join / hide flows do.
+  await assertSucceeds(
+    salesforce()
+      .collection('instructors')
+      .doc(SF_DOC_ID)
+      .set({ joinedSessions: ['SQA-AAAA'], sessionsHiddenFromList: [] }, { merge: true }),
+  );
+  await assertSucceeds(
+    salesforce().collection('instructors').doc(SF_DOC_ID).update({
+      sessionsHiddenFromList: arrayUnion('SQA-BBBB'),
+    }),
+  );
+});
+
+test('instructors: dotted emails map to the same doc id the client uses', async () => {
+  await testEnv.clearFirestore();
+  // emailToId('first.last@salesforce.com') === 'first_last_salesforce_com', so
+  // every non-alphanumeric run must collapse, not just the first one.
+  const db = salesforce('inst5', 'First.Last@salesforce.com');
+  await assertSucceeds(
+    db.collection('instructors').doc('first_last_salesforce_com').set({ displayName: 'First' }),
+  );
+  await assertFails(
+    db.collection('instructors').doc('first.last_salesforce_com').set({ displayName: 'First' }),
+  );
+});
+
+test('instructors: deletion stays blocked', async () => {
+  await testEnv.clearFirestore();
+  await seedInstructorDoc();
+  await assertFails(salesforce().collection('instructors').doc(SF_DOC_ID).delete());
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vote integrity. Anonymous identities are unlimited, so the rules cannot stop
+// sockpuppets, but a single write must not be able to forge or destroy tallies.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function seedQuestion(code, { votes = 0, voters = [] } = {}) {
+  await seedSession(code);
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx
+      .firestore()
+      .collection('sessions')
+      .doc(code)
+      .collection('questions')
+      .doc('q1')
+      .set(validQuestion('author-uid', { votes, voters }));
+  });
+}
+
+function questionRef(db, code) {
+  return db.collection('sessions').doc(code).collection('questions').doc('q1');
+}
+
+test('votes: cannot inflate the counter', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V1');
+  await assertFails(
+    questionRef(anon('voter1'), 'SQA-V1').update({ votes: 9999, voters: ['voter1'] }),
+  );
+});
+
+test('votes: cannot raise the counter without joining the voters list', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V2');
+  await assertFails(questionRef(anon('voter1'), 'SQA-V2').update({ votes: 1, voters: [] }));
+});
+
+test('votes: cannot wipe or remove other people votes', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V3', { votes: 3, voters: ['a', 'b', 'c'] });
+  await assertFails(questionRef(anon('mal'), 'SQA-V3').update({ votes: 0, voters: [] }));
+  await assertFails(
+    questionRef(anon('mal'), 'SQA-V3').update({ votes: 2, voters: ['a', 'b'] }),
+  );
+});
+
+test('votes: cannot vote on behalf of another uid', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V4');
+  await assertFails(
+    questionRef(anon('voter1'), 'SQA-V4').update({ votes: 1, voters: ['someone-else'] }),
+  );
+});
+
+test('votes: cannot double-vote', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V5', { votes: 1, voters: ['voter1'] });
+  await assertFails(
+    questionRef(anon('voter1'), 'SQA-V5').update({ votes: 2, voters: ['voter1', 'voter1'] }),
+  );
+});
+
+test('votes: a single up-vote and un-vote by the caller succeed', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V6', { votes: 1, voters: ['other'] });
+  const { arrayUnion, arrayRemove, increment } = await loadFieldValue();
+  // Up-vote, written exactly the way useUpvote does.
+  await assertSucceeds(
+    questionRef(anon('voter1'), 'SQA-V6').update({
+      votes: increment(1),
+      voters: arrayUnion('voter1'),
+    }),
+  );
+  // Un-vote.
+  await assertSucceeds(
+    questionRef(anon('voter1'), 'SQA-V6').update({
+      votes: increment(-1),
+      voters: arrayRemove('voter1'),
+    }),
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Question field validation and feedback scoping.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('questions: unknown fields are rejected at creation', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-K1');
+  const db = anon('stud1');
+  await assertFails(
+    db
+      .collection('sessions')
+      .doc('SQA-K1')
+      .collection('questions')
+      .add(validQuestion('stud1', { smuggled: 'x'.repeat(5000) })),
+  );
+  // The fields the client actually writes are still accepted.
+  await assertSucceeds(
+    db
+      .collection('sessions')
+      .doc('SQA-K1')
+      .collection('questions')
+      .add(validQuestion('stud1', { imageUrls: ['https://example.com/a.jpg'] })),
+  );
+});
+
+test('questions: author edits cannot exceed the text cap', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-K2');
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx
+      .firestore()
+      .collection('sessions')
+      .doc('SQA-K2')
+      .collection('questions')
+      .doc('q1')
+      .set(validQuestion('author-uid'));
+  });
+  const ref = questionRef(anon('author-uid'), 'SQA-K2');
+  await assertFails(ref.update({ text: 'x'.repeat(10001) }));
+  await assertSucceeds(ref.update({ text: 'a reasonable edit' }));
+});
+
+test('feedback: an instructor cannot read another session feedback', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-F3'); // owned by SF_EMAIL
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx
+      .firestore()
+      .collection('sessions')
+      .doc('SQA-F3')
+      .collection('sessionFeedback')
+      .doc('f1')
+      .set({ subject: 's', body: 'b', submittedAtMs: Date.now() });
+  });
+  // Owner can read; an unrelated salesforce instructor cannot.
+  await assertSucceeds(
+    salesforce().collection('sessions').doc('SQA-F3').collection('sessionFeedback').doc('f1').get(),
+  );
+  await assertFails(
+    salesforce('mal', MALLORY)
+      .collection('sessions')
+      .doc('SQA-F3')
+      .collection('sessionFeedback')
+      .doc('f1')
+      .get(),
+  );
+});
+
+test('votes: instructors keep full update rights', async () => {
+  await testEnv.clearFirestore();
+  await seedQuestion('SQA-V7', { votes: 2, voters: ['a', 'b'] });
+  await assertSucceeds(
+    questionRef(salesforce(), 'SQA-V7').update({ status: 'answered', pinned: true }),
+  );
+});
+
 // --- helpers ---
 async function seedSession(code) {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -290,13 +627,19 @@ async function seedSession(code) {
   });
 }
 
-// FieldValue.arrayUnion from the compat SDK, loaded lazily so the file parses
+// FieldValue sentinels from the compat SDK, loaded lazily so the file parses
 // even if firebase is not present when only linting.
 async function loadFieldValue() {
   const mod = await import('firebase/compat/app');
   const firebase = mod.default;
   await import('firebase/compat/firestore');
-  return { arrayUnion: firebase.firestore.FieldValue.arrayUnion };
+  const FieldValue = firebase.firestore.FieldValue;
+  return {
+    arrayUnion: FieldValue.arrayUnion,
+    arrayRemove: FieldValue.arrayRemove,
+    increment: FieldValue.increment,
+    deleteField: FieldValue.delete,
+  };
 }
 
 // Keep node:test from reporting "no assertions" on env issues.

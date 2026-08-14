@@ -2,8 +2,7 @@
  * QuestionCard — renders a single question with answers, actions, and answer box.
  * dangerouslySetInnerHTML usage: safe: user content is HTML-escaped by esc() inside formatRichMessage
  */
-import { useRef } from 'react';
-import { formatRichMessage, isHttpsUrl, copyRichCodeBlock, esc } from '../../lib/richText.js';
+import { formatRichMessage, isHttpsUrl, copyRichCodeBlock } from '../../lib/richText.js';
 import { htmlAnsweredStatusBadges } from '../../lib/answeredBadge.js';
 import { formatQuestionWhen } from '../../lib/formatQuestionWhen.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';

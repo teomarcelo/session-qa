@@ -100,23 +100,28 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
   const textareaId = 'q-text';
 
   // --- Image upload to Firebase Storage ---
-  function uploadImage(jpegBlob) {
-    if (!storage || !sessionCode) return Promise.reject(new Error('no storage'));
-    const path =
-      'sessions/' +
-      sessionCode +
-      '/question_paste/' +
-      userId +
-      '_' +
-      Date.now() +
-      '_' +
-      genId() +
-      '.jpg';
-    return storage
-      .ref(path)
-      .put(jpegBlob, { contentType: 'image/jpeg' })
-      .then((snap) => snap.ref.getDownloadURL());
-  }
+  // Memoized over the same values handlePaste already depends on, so it stays
+  // stable exactly as long as handlePaste does.
+  const uploadImage = useCallback(
+    (jpegBlob) => {
+      if (!storage || !sessionCode) return Promise.reject(new Error('no storage'));
+      const path =
+        'sessions/' +
+        sessionCode +
+        '/question_paste/' +
+        userId +
+        '_' +
+        Date.now() +
+        '_' +
+        genId() +
+        '.jpg';
+      return storage
+        .ref(path)
+        .put(jpegBlob, { contentType: 'image/jpeg' })
+        .then((snap) => snap.ref.getDownloadURL());
+    },
+    [storage, sessionCode, userId],
+  );
 
   // --- Paste handler ---
   const handlePaste = useCallback(
@@ -209,7 +214,7 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
         }
       }
     },
-    [sessionCode, storage, showToast, userId, isDemoMode],
+    [sessionCode, storage, showToast, isDemoMode, uploadImage],
   );
 
   function removePendingImage(pid) {

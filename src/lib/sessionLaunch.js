@@ -1,4 +1,4 @@
-import { isHttpsUrl, isHttpOrHttpsUrl } from './richText.js';
+import { isHttpsUrl } from './richText.js';
 
 /** Default OrgClaim short link (instructor form placeholder + student fallback when URL omitted). */
 export const DEFAULT_STUDENT_ORG_CLAIM_URL = 'http://sfdc.co/OrgClaim';

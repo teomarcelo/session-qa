@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
-import firebase from '../../lib/firebaseCompat.js';
 import { INSTRUCTOR_PIN_PEPPER } from '../../constants/auth.js';
 import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import { currentUser as firebaseCurrentUser, signOutInstructor } from '../../lib/auth.js';
-import useInstructorStore, { DEMO_SESSION_CODE, DEMO_SESSION, DEMO_QUESTIONS_TEMPLATE, DEMO_INSTRUCTOR_NAME, DEMO_INSTRUCTOR_OWNER_ID } from '../store/useInstructorStore.js';
+import useInstructorStore, { DEMO_SESSION_CODE, DEMO_INSTRUCTOR_NAME, DEMO_INSTRUCTOR_OWNER_ID } from '../store/useInstructorStore.js';
 
 // Storage key constants
 const INSTR_ACTIVE_SESSION_KEY = 'sqa_instructor_active_session';
@@ -357,7 +356,7 @@ export function useInstructorAuth() {
 
   const register = useCallback(async (name, pin, pin2) => {
     return 'Instructor self-signup is temporarily disabled. Contact the workshop admin to provision your account.';
-  }, [db]);
+  }, []);
 
   // Establish the instructor identity by display name. The email is taken from
   // the *verified Firebase user* (never from a caller-supplied / URL value), so

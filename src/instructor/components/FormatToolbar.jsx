@@ -8,7 +8,6 @@
  * vanilla positioning logic in useEffect.
  */
 import { useEffect, useRef } from 'react';
-import ReactDOM from 'react-dom';
 import { emojiSearchText } from '../../lib/emojiData.js';
 
 // ── Emoji data ─────────────────────────────────────────────────
@@ -128,7 +127,9 @@ function EmojiPickerGrid({ targetId, detailsRef }) {
 
     // Ensure shell wrapper exists
     ensureShell(grid, detailsRef.current);
-  }, [targetId]);
+    // detailsRef is a useRef object owned by the parent, so it is stable and
+    // never re-runs this effect on its own.
+  }, [targetId, detailsRef]);
 
   return (
     <div

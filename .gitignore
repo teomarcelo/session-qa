@@ -14,3 +14,8 @@ dist/
 # Local secrets / config and Firebase deploy cache (never commit)
 .env.local
 .firebase/
+
+# Emulator run artifacts (npm run test:rules)
+*-debug.log
+
+.DS_Store

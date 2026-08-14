@@ -66,31 +66,38 @@ export function useUpvote(pollSkipUntilRef) {
         .then((user) => {
           const voterId = (user && user.uid) || currentUid() || userId;
           const voters = question.voters || [];
-          // Treat a prior vote under EITHER the uid or the legacy localStorage id
-          // as "already voted", so migrating identities never lets one person
-          // vote twice. Decrement by however many of their ids we remove.
-          const removeIds = [];
-          if (voters.includes(voterId)) removeIds.push(voterId);
-          if (userId && userId !== voterId && voters.includes(userId)) removeIds.push(userId);
-          const payload = removeIds.length
-            ? {
-                votes: firebase.firestore.FieldValue.increment(-removeIds.length),
-                voters: firebase.firestore.FieldValue.arrayRemove(...removeIds),
-              }
-            : {
-                votes: firebase.firestore.FieldValue.increment(1),
-                voters: firebase.firestore.FieldValue.arrayUnion(voterId),
-              };
-          return ref.update(payload);
+
+          // A write may only move `votes` by exactly one and may only add or
+          // remove the caller's own uid — the rules cannot verify that a caller
+          // owns a localStorage id, so letting a write remove one would let
+          // anyone erase anyone else's vote.
+          if (voters.includes(voterId)) {
+            return ref.update({
+              votes: firebase.firestore.FieldValue.increment(-1),
+              voters: firebase.firestore.FieldValue.arrayRemove(voterId),
+            });
+          }
+
+          // Vote cast before Firebase Auth shipped, keyed to a localStorage id.
+          // It still counts (so this person cannot vote a second time) but it
+          // can no longer be retracted.
+          if (userId && userId !== voterId && voters.includes(userId)) {
+            showToast('Your earlier vote on this question is already counted.');
+            return null;
+          }
+
+          return ref.update({
+            votes: firebase.firestore.FieldValue.increment(1),
+            voters: firebase.firestore.FieldValue.arrayUnion(voterId),
+          });
         })
         .then(() => new Promise((resolve) => setTimeout(resolve, 400)))
         .then(() => {
           if (onSuccess) onSuccess();
         })
         .catch((err) => {
-          showToast(
-            err && err.message ? err.message : 'Could not update vote. Check your connection.',
-          );
+          console.warn('Upvote failed:', err);
+          showToast('Could not update your vote. Check your connection.');
         })
         .finally(() => {
           setLockedIds((prev) => {
