@@ -8,7 +8,7 @@ import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 import 'firebase/compat/storage';
 import 'firebase/compat/app-check';
-import { FIREBASE_CONFIG } from '../config/firebase.js';
+import { FIREBASE_CONFIG, APPCHECK_SITE_KEY } from '../config/firebase.js';
 
 const configReady = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
 if (configReady && !firebase.apps.length) {
@@ -16,17 +16,17 @@ if (configReady && !firebase.apps.length) {
 }
 
 /**
- * App Check (reCAPTCHA v3) — env-guarded so the app never blocks on a missing key.
+ * App Check (reCAPTCHA v3) — guarded so the app never blocks on a missing key.
  *
- * - VITE_APPCHECK_SITE_KEY unset  → skip init entirely (dev-safe, demo-safe).
- * - VITE_APPCHECK_DEBUG set       → register the debug provider for localhost so
+ * - APPCHECK_SITE_KEY empty  → skip init entirely (dev-safe, demo-safe). It carries
+ *   a committed default, so only an explicit empty override lands here.
+ * - VITE_APPCHECK_DEBUG set  → register the debug provider for localhost so
  *   development tokens are accepted (Firebase Console → App Check → debug tokens).
  *
  * App Check must be *initialized on the client* before it can be *enforced* in the
  * console. Enforcing on Firestore without a valid key would reject every write, so
  * we only enforce after the key is wired (see docs/qa-foundation.md).
  */
-const APPCHECK_SITE_KEY = import.meta.env.VITE_APPCHECK_SITE_KEY || '';
 if (configReady && APPCHECK_SITE_KEY) {
   try {
     // Debug token flow for local development only. Firebase reads this global
