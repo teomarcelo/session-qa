@@ -25,7 +25,7 @@ Report whether write access to `sessions/*/images/` is present. Flag if missing.
 cat storage-cors.json
 ```
 
-Confirm `https://session-qa.web.app` is in the `origin` array — that is the live
+Confirm `https://tdx-qa.web.app` is in the `origin` array — that is the live
 Firebase Hosting origin, and Storage CORS is exact-origin. Flag if missing.
 
 ### 4. Check IMG_MAX_EDGE and IMG_JPEG_Q constants
@@ -41,7 +41,7 @@ Report what was found for each step — present, missing, or needs attention.
 ### 6. Remind Teo to do a manual live test
 Ask Teo to complete this manual verification:
 
-1. Open **https://session-qa.web.app/student.html**
+1. Open **https://tdx-qa.web.app/student.html**
 2. Join a session with a valid SQA- code
 3. Paste a screenshot into the ask box
 4. Confirm image preview appears before submit

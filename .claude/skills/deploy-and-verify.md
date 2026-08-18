@@ -4,7 +4,7 @@ Run the full deploy sequence safely and confirm Firebase Hosting updated correct
 
 ## How this app actually deploys (read first)
 
-Production is **Firebase Hosting** at **https://session-qa.web.app**, published by
+Production is **Firebase Hosting** at **https://tdx-qa.web.app**, published by
 running the Firebase CLI by hand. There is no CI deploy.
 
 - Pushing to `main` deploys **nothing**. The old `.github/workflows/deploy-pages.yml`
@@ -30,7 +30,7 @@ git branch --show-current
 ### 2. Confirm what is about to ship
 ```bash
 git log --oneline origin/main -5
-curl -sI https://session-qa.web.app/student.html | grep -i last-modified
+curl -sI https://tdx-qa.web.app/student.html | grep -i last-modified
 ```
 
 List every commit made since that `last-modified` date. Deploys have lagged by
@@ -48,19 +48,19 @@ If the build fails, stop and report all errors. Do not proceed.
 
 ### 4. Deploy
 ```bash
-cd /tmp/sqa-deploy && npx firebase-tools deploy --only hosting --project session-qa
+cd /tmp/sqa-deploy && npx firebase-tools deploy --only hosting --project tdx-qa
 ```
 
 Only `--only hosting`. Deploying rules requires a separate explicit decision:
 
 ```bash
-npx firebase-tools deploy --only firestore:rules --project session-qa
-npx firebase-tools deploy --only storage --project session-qa
+npx firebase-tools deploy --only firestore:rules --project tdx-qa
+npx firebase-tools deploy --only storage --project tdx-qa
 ```
 
 ### 5. Verify the new bundle is actually serving
 ```bash
-curl -s https://session-qa.web.app/student.html | grep -o 'assets/student-[A-Za-z0-9_-]*\.js'
+curl -s https://tdx-qa.web.app/student.html | grep -o 'assets/student-[A-Za-z0-9_-]*\.js'
 ```
 
 Compare against the hash in `/tmp/sqa-deploy/dist/`. They must match. A 200 alone
@@ -74,8 +74,8 @@ git worktree remove /tmp/sqa-deploy --force
 ### 7. Confirm with Teo
 Ask Teo to open both pages and confirm they load and behave correctly:
 
-- **https://session-qa.web.app/student.html**
-- **https://session-qa.web.app/instructor.html**
+- **https://tdx-qa.web.app/student.html**
+- **https://tdx-qa.web.app/instructor.html**
 
 > Do both pages load correctly? If yes, the deploy is complete. If anything looks wrong, do not declare done — investigate first.
 
@@ -83,4 +83,4 @@ Ask Teo to open both pages and confirm they load and behave correctly:
 Student code runs in every attendee's browser, so a render or polling regression
 bills real money. Check the Firestore read count the next day:
 
-**https://console.firebase.google.com/project/session-qa/usage**
+**https://console.firebase.google.com/project/tdx-qa/usage**

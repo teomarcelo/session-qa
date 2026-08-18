@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "session-qa"
+    "default": "tdx-qa"
   },
   "targets": {},
   "etags": {}
