@@ -3,6 +3,38 @@
 Captured for the Dreamforce bootcamp. Ordered by value/effort. File pointers are
 starting points, not exhaustive.
 
+## Operational
+
+### P1 — Enable App Check enforcement (deliberately deferred)
+App Check is registered and the client now mints reCAPTCHA v3 tokens, but
+`firestore`, `firebasestorage` and `identitytoolkit` are all **UNENFORCED**, so
+the backend accepts requests carrying no token. Until this is on, App Check
+protects nothing — see the vote-integrity note in [`firestore.rules`](firestore.rules),
+which correctly identifies App Check as the only lever against a sockpuppet
+upvote campaign, since anonymous identities are unlimited and rules cannot tell
+500 scripted voters from 500 real ones.
+- Do **not** enable it from the console on a hunch. Let one real workshop run,
+  then check the verified vs. unverified split in Firebase Console → App Check.
+- Enforce only when essentially all traffic shows verified. Never on event day:
+  the failure mode is total, not degraded — unverified clients cannot write at all.
+- Token TTL is 24h and the score threshold is reCAPTCHA's default `0.5`. A
+  stricter score also catches real attendees on VPNs and privacy blockers.
+
+### P2 — Stop shipping 310 KB of emoji keywords on first paint
+`emojilib` lands in a chunk that is **1.2 MB raw / ~310 KB gzipped** and is
+eagerly `modulepreload`ed on *both* `student.html` and `instructor.html`, so every
+attendee downloads and parses it before the app is interactive. It exists only to
+power keyword search in the emoji picker.
+- Load it on demand when the picker first opens, via a cached dynamic `import()`
+  in [`emojiData.js`](src/lib/emojiData.js).
+- Both format toolbars consume it synchronously today
+  ([student](src/student/components/FormatToolbar.jsx),
+  [instructor](src/instructor/components/FormatToolbar.jsx)), so this needs the
+  picker to tolerate an async index — the glyph grid itself is a plain string and
+  can render immediately while keywords are still loading.
+- Verify with `npm run build`: the emoji chunk should stop appearing as a
+  `modulepreload` in `dist/student.html` and `dist/instructor.html`.
+
 ## Features
 
 ### P1 — QR-code join (biggest in-person win)

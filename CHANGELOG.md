@@ -4,6 +4,29 @@ All notable changes to this project are documented here. Newest first.
 
 ---
 
+## 2026-08-17
+
+### Changed
+
+- **Production domain is now https://session-qa.web.app.** Added a second Hosting *site* (`session-qa`) to the existing **`tdx-qa`** project rather than creating a new project — a `.web.app` address comes from the Hosting site id, so Firestore data, Auth identities, stored image URLs and the App Check registration were all left untouched. **The Firebase project id is still `tdx-qa`.**
+- **`tdx-qa.web.app` now 301-redirects** to the new domain, preserving path *and* query string, so links already handed out with a session code keep working. `firebase.json` hosting is now two targets: **`app`** (serves `dist/`) and **`legacy`** (redirect-only, backed by `redirect-site/`).
+- **Storage CORS** and the **reCAPTCHA key domain list** gained `session-qa.web.app` and `session-qa.firebaseapp.com`; the old origins stay listed. **Firebase Auth authorized domains** likewise.
+
+### Fixed
+
+- **App Check never actually ran in production.** `VITE_APPCHECK_SITE_KEY` lived only in the untracked `.env.local`, but production is built from a detached worktree of `origin/main` which has no such file — so Vite inlined an empty value and every deploy since App Check was wired shipped with it inactive. The live bundle contained no site key at all; only `UNENFORCED` mode kept the app working, and enabling enforcement would have rejected every client write. The site key is now a committed default in **`src/config/firebase.js`** (it is public by design, like the rest of the Firebase web config), and a Vite plugin **fails the production build** if no key reaches the emitted chunks.
+- **Instructor questions panel showed "No questions in this view." while still loading.** `questionPages` starts empty, so the gap between selecting a session and its first snapshot rendered an assertion of emptiness that then corrected itself. Now tracked by `questionsHydrated` and shown as a loading state.
+- **Switching sessions briefly rendered the previous session's questions** under the new session's header: the effect reset the page index but left the cached pages in place. Cached pages are now cleared *before* subscribing.
+- **A failed questions subscription hung on the loading state.** The `onSnapshot` call had no error callback; it now hydrates on error and surfaces a toast.
+
+### Docs
+
+- Swept `tdx-qa.web.app` → `session-qa.web.app` across README, the domain-change checklist and all three `.claude/skills/` files. **Only public URLs changed — every `--project` flag still says `tdx-qa`**, which is what made the earlier rename attempt (reverted in `96a1a37`) wrong.
+- **`CLAUDE.md` corrected**: it described the app as GitHub Pages, vanilla JavaScript and having no auth. It is Firebase Hosting (manual deploy, no CI), React, and Firebase Auth with Google + anonymous. The `.github/workflows/` directory it referenced does not exist.
+- **`firestore.rules` header no longer claims App Check is enforced.** It is not. Comment-only change; rule logic is byte-identical to the deployed ruleset.
+
+---
+
 ## 2026-04-23
 
 ### Added

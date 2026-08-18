@@ -28,8 +28,20 @@ App Check → your web app → reCAPTCHA provider
 
 ## 4. Firebase Hosting
 
-Currently hosted at `tdx-qa.web.app` via Firebase Hosting (`firebase deploy --only hosting`).
-No domain config to change in code — just update Auth authorized domains and reCAPTCHA above.
+Currently hosted at `session-qa.web.app` via Firebase Hosting
+(`firebase deploy --only hosting:app --project tdx-qa`). No domain config to change
+in code — just update Auth authorized domains and reCAPTCHA above.
+
+A new `.web.app` domain does not need a new Firebase project: create a Hosting
+*site* in the existing one and point a deploy target at it.
+
+```bash
+firebase hosting:sites:create <site-id> --project tdx-qa
+firebase target:apply hosting app <site-id> --project tdx-qa
+```
+
+Retiring an old domain is a redirect-only site (`legacy` target in `firebase.json`),
+not a deletion. Keep it serving 301s so links already handed out keep working.
 
 If moving to a custom domain: Firebase Console → Hosting → Add custom domain.
 

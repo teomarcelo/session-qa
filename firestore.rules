@@ -8,9 +8,15 @@ rules_version = '2';
 //   - Instructors sign in with Google; writes require a VERIFIED @salesforce.com
 //     email (request.auth.token.email_verified + domain match).
 //   - Students get a silent ANONYMOUS identity; their writes carry a stable uid.
-// These rules bind writes to that identity. App Check (reCAPTCHA v3) is enforced
-// separately in the Firebase Console and adds bot/scripted-abuse protection on
-// top of these rules.
+// These rules bind writes to that identity.
+//
+// APP CHECK IS NOT ENFORCED. reCAPTCHA v3 is registered and the client now mints
+// tokens, but firestore/storage/identitytoolkit are all still UNENFORCED, so the
+// backend accepts requests that carry no token. Treat these rules as the only
+// thing standing between a script and your data — see the vote-integrity note
+// below, which assumes exactly that. Enforcement is a deliberate later step:
+// enable it only after the App Check console shows real traffic minting valid
+// tokens, because turning it on early rejects every client write instantly.
 //
 // LEGACY TOLERANCE:
 // Documents created before this migration may lack `authorUid` (questions) or
