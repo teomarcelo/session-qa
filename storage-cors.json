@@ -1,6 +1,8 @@
 [
   {
     "origin": [
+      "https://session-qa.web.app",
+      "https://session-qa.firebaseapp.com",
       "https://tdx-qa.web.app",
       "https://teomarcelo.github.io",
       "http://127.0.0.1:5173",

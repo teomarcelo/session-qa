@@ -2,6 +2,17 @@
   "projects": {
     "default": "tdx-qa"
   },
-  "targets": {},
+  "targets": {
+    "tdx-qa": {
+      "hosting": {
+        "app": [
+          "session-qa"
+        ],
+        "legacy": [
+          "tdx-qa"
+        ]
+      }
+    }
+  },
   "etags": {}
 }
