@@ -117,6 +117,8 @@ export function useSessions() {
       const qs = DEMO_QUESTIONS_TEMPLATE.map(q => ({ ...q, voters: [...q.voters] }));
       useInstructorStore.getState().setQuestionPages([{ questions: qs, endSnap: null }]);
       useInstructorStore.getState().setCurrentPage(0);
+      // Demo never subscribes, so nothing else would clear the loading state.
+      useInstructorStore.getState().setQuestionsHydrated(true);
       useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(true);
       persistInstructorActiveSession(DEMO_SESSION_CODE);
     }

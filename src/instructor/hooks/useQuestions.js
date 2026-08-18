@@ -18,11 +18,16 @@ export function useQuestions() {
       unsubRef.current = null;
     }
 
-    if (!activeSessionCode || isDemoMode || !db) return;
+    // Demo mode seeds questionPages directly (useSessions.loadDemoSessions), so
+    // clearing here would wipe the demo feed it just populated.
+    if (isDemoMode) return;
 
-    // Clear old state when switching sessions
-    useInstructorStore.getState().setCurrentPage(0);
-    useInstructorStore.getState().setInstructorOlderBeyondLoadExhausted(false);
+    // Clear before subscribing, not after the snapshot returns: the outgoing
+    // session's questions would otherwise stay on screen under the incoming
+    // session's header for the length of the round trip.
+    useInstructorStore.getState().resetQuestionsForSession();
+
+    if (!activeSessionCode || !db) return;
 
     const unsub = db.collection('sessions').doc(activeSessionCode).collection('questions')
       .orderBy('createdAt', 'desc')
@@ -30,6 +35,8 @@ export function useQuestions() {
       .onSnapshot(snap => {
         const questions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const endSnap = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+
+        useInstructorStore.getState().setQuestionsHydrated(true);
 
         const state = useInstructorStore.getState();
         // Only update page 0 from snapshot (don't clobber older pages we fetched)
@@ -45,6 +52,12 @@ export function useQuestions() {
           // Use setQuestionPages so allQuestions stays in sync with currentPage.
           useInstructorStore.getState().setQuestionPages(newPages);
         }
+      }, err => {
+        // Mark hydrated on failure too, otherwise the loading state never clears
+        // and a permissions or network error reads as an indefinite hang.
+        console.error('Questions subscription failed:', err);
+        useInstructorStore.getState().setQuestionsHydrated(true);
+        useInstructorStore.getState().showToast('Could not load questions. Check your connection.');
       });
 
     unsubRef.current = unsub;

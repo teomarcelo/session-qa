@@ -44,7 +44,8 @@ const useInstructorStore = create((set, get) => ({
   // Questions
   questionPages: [],      // [{ questions: [...], endSnap }]
   currentPage: 0,
-  questionsLoading: false,
+  questionsLoading: false, // true only while "Load older" fetches an extra page
+  questionsHydrated: false,// false until the active session's first snapshot lands
   instructorOlderBeyondLoadExhausted: false,
   allQuestions: [],       // derived from questionPages[currentPage]
 
@@ -154,7 +155,19 @@ const useInstructorStore = create((set, get) => ({
 
   setInstructorSessionsHydrated: (v) => set({ instructorSessionsHydrated: v }),
   setQuestionsLoading: (v) => set({ questionsLoading: v }),
+  setQuestionsHydrated: (v) => set({ questionsHydrated: v }),
   setInstructorOlderBeyondLoadExhausted: (v) => set({ instructorOlderBeyondLoadExhausted: v }),
+
+  // Drop the outgoing session's questions as soon as the active session changes.
+  // The cached pages otherwise survive the switch and render under the incoming
+  // session's header until its first snapshot replaces them.
+  resetQuestionsForSession: () => set({
+    questionPages: [],
+    allQuestions: [],
+    currentPage: 0,
+    questionsHydrated: false,
+    instructorOlderBeyondLoadExhausted: false,
+  }),
 
   showToast: (message) => {
     set({ toast: { message, visible: true } });
@@ -176,6 +189,7 @@ const useInstructorStore = create((set, get) => ({
       questionPages: [{ questions: qs, endSnap: null }],
       currentPage: 0,
       allQuestions: qs,
+      questionsHydrated: true,
       instructorOlderBeyondLoadExhausted: true,
       currentFilter: 'all',
       currentSort: 'recent',
@@ -241,6 +255,7 @@ const useInstructorStore = create((set, get) => ({
     questionPages: [],
     currentPage: 0,
     questionsLoading: false,
+    questionsHydrated: false,
     instructorOlderBeyondLoadExhausted: false,
     allQuestions: [],
     currentFilter: 'all',

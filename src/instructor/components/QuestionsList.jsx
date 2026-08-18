@@ -55,6 +55,7 @@ export default function QuestionsList() {
   const currentSort = useInstructorStore(s => s.currentSort);
   const searchQuery = useInstructorStore(s => s.searchQuery);
   const instructorSessionsHydrated = useInstructorStore(s => s.instructorSessionsHydrated);
+  const questionsHydrated = useInstructorStore(s => s.questionsHydrated);
   const allSessions = useInstructorStore(s => s.allSessions);
   const instructorOlderBeyondLoadExhausted = useInstructorStore(s => s.instructorOlderBeyondLoadExhausted);
   const setCurrentSort = useInstructorStore(s => s.setCurrentSort);
@@ -230,7 +231,11 @@ export default function QuestionsList() {
 
       {/* Questions */}
       <div id="questions-list">
-        {displayedQuestions.length === 0 ? (
+        {!questionsHydrated ? (
+          <div className="empty-state">
+            <p>Loading questions…</p>
+          </div>
+        ) : displayedQuestions.length === 0 ? (
           <div className="empty-state">
             <p>{searchQuery
               ? 'No matches in loaded questions. Load more pages or clear the search.'
