@@ -4,9 +4,9 @@
  */
 export const FIREBASE_CONFIG = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCM_fXpm_F2a4-h04m18UPy472UmDaa8OE',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'tdx-qa.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'tdx-qa',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'tdx-qa.firebasestorage.app',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'session-qa.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'session-qa',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'session-qa.firebasestorage.app',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '964102376485',
   appId:
     import.meta.env.VITE_FIREBASE_APP_ID ||

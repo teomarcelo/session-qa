@@ -5,13 +5,13 @@ Run this before every Salesforce workshop to confirm everything is working.
 ## Steps
 
 ### 1. Confirm Firebase project
-Read `.firebaserc` and confirm the default project is `tdx-qa`.
+Read `.firebaserc` and confirm the default project is `session-qa`.
 
 ```bash
 cat .firebaserc
 ```
 
-Report the project name. If it's not `tdx-qa`, flag it as a blocker.
+Report the project name. If it's not `session-qa`, flag it as a blocker.
 
 ### 2. Confirm storage rules are deployed
 Check that `firebase.json` exists and `storage.rules` exists.
@@ -38,14 +38,14 @@ If the count is 0, flag it — CLAUDE.md may have been modified.
 
 ### 5. Remind Teo to verify live URL manually
 Ask Teo to open this URL in a browser and confirm it loads:
-**https://tdx-qa.web.app/student.html**
+**https://session-qa.web.app/student.html**
 
 Production is Firebase Hosting. The old GitHub Pages URL
 (`teomarcelo.github.io/session-qa/`) is retired and returns 404.
 
 ### 6. Remind Teo to confirm Firebase spending limit
 Ask Teo to verify the $1 Firebase Storage spending limit is still active at:
-**https://console.firebase.google.com/project/tdx-qa/usage/details**
+**https://console.firebase.google.com/project/session-qa/usage/details**
 
 ### 7. Print GO / NO-GO
 Based on steps 1–4:

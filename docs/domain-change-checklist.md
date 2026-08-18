@@ -28,7 +28,7 @@ App Check → your web app → reCAPTCHA provider
 
 ## 4. Firebase Hosting
 
-Currently hosted at `tdx-qa.web.app` via Firebase Hosting (`firebase deploy --only hosting`).
+Currently hosted at `session-qa.web.app` via Firebase Hosting (`firebase deploy --only hosting`).
 No domain config to change in code — just update Auth authorized domains and reCAPTCHA above.
 
 If moving to a custom domain: Firebase Console → Hosting → Add custom domain.

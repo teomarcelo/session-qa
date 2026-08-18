@@ -17,9 +17,9 @@ import {
 
 const FIREBASE_CONFIG = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || 'AIzaSyCM_fXpm_F2a4-h04m18UPy472UmDaa8OE',
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'tdx-qa.firebaseapp.com',
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'tdx-qa',
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'tdx-qa.firebasestorage.app',
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'session-qa.firebaseapp.com',
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'session-qa',
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'session-qa.firebasestorage.app',
   messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '964102376485',
   appId: process.env.VITE_FIREBASE_APP_ID || '1:964102376485:web:bfa3d741284a1ef20f03cc',
 };

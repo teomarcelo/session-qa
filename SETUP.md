@@ -11,7 +11,7 @@
 ## Step 1: Firebase Setup (~15 minutes, free)
 
 1. Go to https://console.firebase.google.com
-2. Click **Add project** → pick a project id (the sample defaults in **`src/config/firebase.js`** use **`tdx-qa`**, or create any project and edit that file or set **`VITE_FIREBASE_*`** env vars before `npm run build`) → Create
+2. Click **Add project** → pick a project id (the sample defaults in **`src/config/firebase.js`** use **`session-qa`**, or create any project and edit that file or set **`VITE_FIREBASE_*`** env vars before `npm run build`) → Create
 3. Go to **Firestore Database** → Create database → Start in **test mode** → Choose a region → Done
 4. Go to **Project Settings** (gear icon) → **Your apps** → click `</>` (Web)
 5. Register the app (e.g. name: "Session Q&A"), skip Firebase Hosting
@@ -19,8 +19,8 @@
    ```js
    const firebaseConfig = {
      apiKey: "AIza...",
-     authDomain: "tdx-qa.firebaseapp.com",
-     projectId: "tdx-qa",
+     authDomain: "session-qa.firebaseapp.com",
+     projectId: "session-qa",
    };
    ```
 7. Paste those values into **`src/config/firebase.js`** in the exported **`FIREBASE_CONFIG`** object (same shape as the Firebase snippet). For CI or one-off builds you can instead export **`VITE_FIREBASE_API_KEY`**, **`VITE_FIREBASE_AUTH_DOMAIN`**, **`VITE_FIREBASE_PROJECT_ID`**, **`VITE_FIREBASE_STORAGE_BUCKET`**, **`VITE_FIREBASE_MESSAGING_SENDER_ID`**, and **`VITE_FIREBASE_APP_ID`** before running **`npm run build`**.
@@ -155,7 +155,7 @@ Browsers enforce **CORS** on your Firebase Storage bucket. If the console shows 
 
    Other platforms: [Cloud SDK install](https://cloud.google.com/sdk/docs/install).
 
-2. In Firebase Console → **Project settings** → note your **Storage bucket** (e.g. `tdx-qa.firebasestorage.app` or `your-project.appspot.com`).
+2. In Firebase Console → **Project settings** → note your **Storage bucket** (e.g. `session-qa.firebasestorage.app` or `your-project.appspot.com`).
 3. Edit **`storage-cors.json`** in this repo: it includes **Vite** dev defaults (`http://localhost:5173`, `http://127.0.0.1:5173`) and **`vite preview`** (`:4173`). Add any other dev ports you use and your **production** origin (e.g. `https://your-app.netlify.app`) — Storage CORS is **exact-origin** (scheme + host + port).
 4. Run (replace `YOUR_BUCKET` with the bucket name from step 2):
 
