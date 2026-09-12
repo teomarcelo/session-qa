@@ -190,7 +190,7 @@ async function adminJson(method, urlPath, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
-  let json = {};
+  let json;
   try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text.slice(0, 400) }; }
   if (!res.ok) {
     throw new Error(`admin ${method} ${urlPath} ${res.status}: ${json.error?.message || text.slice(0, 300)}`);
@@ -211,7 +211,7 @@ async function identityJson(urlPath, body) {
     body: JSON.stringify(body),
   });
   const text = await res.text();
-  let json = {};
+  let json;
   try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text.slice(0, 400) }; }
   if (!res.ok) {
     throw new Error(`identity ${urlPath} ${res.status}: ${json.error?.message || text.slice(0, 300)}`);
