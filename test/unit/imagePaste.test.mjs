@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { QUESTION_IMAGE_URLS_MAX } from '../../src/constants/app.js';
 import {
+  awaitWithTimeout,
+  claimPendingImageSlot,
   collectImageFilesFromPaste,
   formatUploadError,
   httpsImageUrlList,
+  pendingImagesStillUploading,
   pendingRowsFromImageUrls,
   questionImageUrlsFromPending,
   stripEmbeddedImageUrls,
@@ -83,6 +86,49 @@ test('collectImageFilesFromPaste reads image files and ignores empty ones', () =
   };
   assert.deepEqual(collectImageFilesFromPaste(ev), [good]);
   assert.deepEqual(collectImageFilesFromPaste({}), []);
+});
+
+test('pendingImagesStillUploading is true until a https URL lands', () => {
+  assert.equal(pendingImagesStillUploading([]), false);
+  assert.equal(pendingImagesStillUploading([{ pid: '1', url: 'https://a.example/1.jpg', uploading: false }]), false);
+  assert.equal(pendingImagesStillUploading([{ pid: '1', url: '', blobUrl: 'blob:x', uploading: true }]), true);
+  assert.equal(pendingImagesStillUploading([{ pid: '1', url: '', blobUrl: 'blob:x', uploading: false }]), true);
+});
+
+test('claimPendingImageSlot writes the ref immediately (does not wait for React)', () => {
+  const pendingRef = { current: [] };
+  let reactState = null;
+  const setPendingImages = (next) => { reactState = next; };
+  const ok = claimPendingImageSlot(pendingRef, setPendingImages, 10, {
+    pid: 'a',
+    url: '',
+    blobUrl: '',
+    uploading: true,
+  });
+  assert.equal(ok, true);
+  assert.equal(pendingRef.current.length, 1);
+  assert.equal(pendingRef.current[0].pid, 'a');
+  assert.equal(reactState[0].pid, 'a');
+  const blocked = claimPendingImageSlot(pendingRef, setPendingImages, 1, {
+    pid: 'b',
+    url: '',
+    blobUrl: '',
+    uploading: true,
+  });
+  assert.equal(blocked, false);
+  assert.equal(pendingRef.current.length, 1);
+});
+
+test('awaitWithTimeout rejects when the thenable never settles', async () => {
+  await assert.rejects(
+    () => awaitWithTimeout(new Promise(() => {}), 20, 'Image upload timed out. Check your connection and try again.'),
+    /timed out/,
+  );
+});
+
+test('formatUploadError maps a hung upload to a timeout', () => {
+  assert.match(formatUploadError({ message: 'Image upload timed out. Check your connection and try again.' }), /timed out/);
+  assert.match(formatUploadError({ code: 'storage/canceled', message: 'canceled' }), /timed out/);
 });
 
 test('formatUploadError points at CORS when the browser does', () => {

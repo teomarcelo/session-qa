@@ -8,6 +8,10 @@ import { IMAGE_MAX_EDGE, IMAGE_JPEG_QUALITY, QUESTION_IMAGE_URLS_MAX } from '../
 import { extractImageUrlForQuestionPaste } from './clipboardImagePaste.js';
 import { isHttpsUrl } from './richText.js';
 
+export const IMAGE_UPLOAD_TIMEOUT_MS = 45_000;
+const IMAGE_DOWNLOAD_URL_TIMEOUT_MS = 15_000;
+const IMAGE_FETCH_TIMEOUT_MS = 20_000;
+
 export function newPasteId() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -75,6 +79,9 @@ export function formatUploadError(err) {
   ) {
     return 'Image upload blocked (browser ↔ Storage). Apply storage-cors.json to your bucket with this origin — SETUP.md step "CORS".';
   }
+  if (blob.indexOf('timed out') >= 0 || blob.indexOf('canceled') >= 0 || blob.indexOf('cancelled') >= 0) {
+    return 'Image upload timed out. Check your connection and try again.';
+  }
   return 'Upload failed: ' + (m || 'check Storage rules in SETUP.md');
 }
 
@@ -135,6 +142,108 @@ export function revokePendingBlobUrl(row) {
   }
 }
 
+export function pendingImagesStillUploading(pending) {
+  return (pending || []).some((r) => r.uploading || !r.url);
+}
+
+export function awaitWithTimeout(thenable, ms, message) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(message)), ms);
+    Promise.resolve(thenable).then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
+
+/**
+ * Claim a preview slot using a ref so we do not depend on React running the
+ * setState updater before the upload starts. An updater-side-effect `accepted`
+ * flag stays false when the updater is deferred, which left a row at
+ * `uploading: true` forever.
+ */
+export function claimPendingImageSlot(pendingRef, setPendingImages, maxImages, row) {
+  const prev = Array.isArray(pendingRef && pendingRef.current) ? pendingRef.current : [];
+  if (prev.length >= maxImages) return false;
+  const next = [...prev, row];
+  pendingRef.current = next;
+  setPendingImages(next);
+  return true;
+}
+
+export function replacePendingImage(pendingRef, setPendingImages, pid, nextRow) {
+  const prev = Array.isArray(pendingRef && pendingRef.current) ? pendingRef.current : [];
+  const next = prev.map((r) => (r.pid === pid ? nextRow : r));
+  pendingRef.current = next;
+  setPendingImages(next);
+}
+
+export function dropPendingImage(pendingRef, setPendingImages, pid) {
+  const prev = Array.isArray(pendingRef && pendingRef.current) ? pendingRef.current : [];
+  const row = prev.find((r) => r.pid === pid);
+  revokePendingBlobUrl(row);
+  const next = prev.filter((r) => r.pid !== pid);
+  pendingRef.current = next;
+  setPendingImages(next);
+}
+
+export function clearPendingImagesList(pendingRef, setPendingImages) {
+  const prev = Array.isArray(pendingRef && pendingRef.current) ? pendingRef.current : [];
+  prev.forEach(revokePendingBlobUrl);
+  pendingRef.current = [];
+  setPendingImages([]);
+}
+
+export async function uploadStudentQuestionJpeg(storage, sessionCode, userId, jpegBlob) {
+  if (!storage || !sessionCode) throw new Error('no storage');
+  const task = storage
+    .ref(questionPasteStoragePath(sessionCode, userId))
+    .put(jpegBlob, { contentType: 'image/jpeg' });
+  if (typeof task.cancel === 'function') {
+    const timer = setTimeout(() => {
+      try { task.cancel(); } catch (e) {}
+    }, IMAGE_UPLOAD_TIMEOUT_MS);
+    try {
+      const snap = await awaitWithTimeout(
+        task,
+        IMAGE_UPLOAD_TIMEOUT_MS,
+        'Image upload timed out. Check your connection and try again.',
+      );
+      return awaitWithTimeout(
+        snap.ref.getDownloadURL(),
+        IMAGE_DOWNLOAD_URL_TIMEOUT_MS,
+        'Image uploaded but the link did not come back. Try pasting again.',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  const snap = await awaitWithTimeout(
+    task,
+    IMAGE_UPLOAD_TIMEOUT_MS,
+    'Image upload timed out. Check your connection and try again.',
+  );
+  return awaitWithTimeout(
+    snap.ref.getDownloadURL(),
+    IMAGE_DOWNLOAD_URL_TIMEOUT_MS,
+    'Image uploaded but the link did not come back. Try pasting again.',
+  );
+}
+
+async function fetchImageBlob(src) {
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    try { if (ctrl) ctrl.abort(); } catch (e) {}
+  }, IMAGE_FETCH_TIMEOUT_MS);
+  try {
+    const r = await fetch(src, ctrl ? { mode: 'cors', signal: ctrl.signal } : { mode: 'cors' });
+    if (!r.ok) throw new Error('Could not download image (site blocked copy). Try right-click → Copy image.');
+    return r.blob();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Handle a paste on a student question textarea (ask box or edit modal).
  * No-ops for ordinary text pastes so the browser can insert them.
@@ -147,11 +256,12 @@ export async function runStudentQuestionImagePaste(e, opts) {
     showToast,
     uploadImage,
     setPendingImages,
+    pendingRef,
     maxImages = QUESTION_IMAGE_URLS_MAX,
     attachedToast = 'Image attached. Add text or submit.',
     linkFallbackToast = 'Using image link (download or upload was blocked). Submit to attach.',
   } = opts || {};
-  if (!sessionCode) return;
+  if (!sessionCode || !pendingRef) return;
 
   const files = collectImageFilesFromPaste(e);
   const htmlSrc = extractImageUrlForQuestionPaste(e, files.length > 0);
@@ -168,11 +278,11 @@ export async function runStudentQuestionImagePaste(e, opts) {
   if (!storage) {
     if (htmlSrc) {
       e.preventDefault();
-      let added = false;
-      setPendingImages((prev) => {
-        if (prev.length >= maxImages) return prev;
-        added = true;
-        return [...prev, { pid: newPasteId() + newPasteId(), url: htmlSrc, blobUrl: '' }];
+      const added = claimPendingImageSlot(pendingRef, setPendingImages, maxImages, {
+        pid: newPasteId() + newPasteId(),
+        url: htmlSrc,
+        blobUrl: '',
+        uploading: false,
       });
       showToast(
         added
@@ -192,11 +302,11 @@ export async function runStudentQuestionImagePaste(e, opts) {
   if (files.length) {
     for (let k = 0; k < files.length; k++) {
       const pid = newPasteId() + '_' + Date.now() + '_' + k;
-      let accepted = false;
-      setPendingImages((prev) => {
-        if (prev.length >= maxImages) return prev;
-        accepted = true;
-        return [...prev, { pid, url: '', blobUrl: '', uploading: true }];
+      const accepted = claimPendingImageSlot(pendingRef, setPendingImages, maxImages, {
+        pid,
+        url: '',
+        blobUrl: '',
+        uploading: true,
       });
       if (!accepted) {
         showToast(`You can attach up to ${maxImages} images.`);
@@ -206,25 +316,25 @@ export async function runStudentQuestionImagePaste(e, opts) {
       try {
         const jpegBlob = await resizeImageToJpegBlob(files[k]);
         const blobUrl = URL.createObjectURL(jpegBlob);
-        setPendingImages((prev) =>
-          prev.map((r) => (r.pid === pid ? { pid, url: '', blobUrl, uploading: false } : r)),
-        );
+        replacePendingImage(pendingRef, setPendingImages, pid, {
+          pid,
+          url: '',
+          blobUrl,
+          uploading: true,
+        });
         const url = await uploadImage(jpegBlob);
-        setPendingImages((prev) =>
-          prev.map((r) => {
-            if (r.pid !== pid) return r;
-            revokePendingBlobUrl(r);
-            return { pid, url, blobUrl: '' };
-          }),
-        );
+        const current = (pendingRef.current || []).find((r) => r.pid === pid);
+        revokePendingBlobUrl(current);
+        replacePendingImage(pendingRef, setPendingImages, pid, {
+          pid,
+          url,
+          blobUrl: '',
+          uploading: false,
+        });
         showToast(attachedToast);
       } catch (err) {
         console.warn(err);
-        setPendingImages((prev) => {
-          const row = prev.find((r) => r.pid === pid);
-          revokePendingBlobUrl(row);
-          return prev.filter((r) => r.pid !== pid);
-        });
+        dropPendingImage(pendingRef, setPendingImages, pid);
         showToast(formatUploadError(err));
       }
     }
@@ -233,11 +343,11 @@ export async function runStudentQuestionImagePaste(e, opts) {
 
   if (htmlSrc) {
     const pid2 = newPasteId() + '_' + Date.now();
-    let accepted = false;
-    setPendingImages((prev) => {
-      if (prev.length >= maxImages) return prev;
-      accepted = true;
-      return [...prev, { pid: pid2, url: htmlSrc, blobUrl: '' }];
+    const accepted = claimPendingImageSlot(pendingRef, setPendingImages, maxImages, {
+      pid: pid2,
+      url: '',
+      blobUrl: '',
+      uploading: true,
     });
     if (!accepted) {
       showToast(`You can attach up to ${maxImages} images.`);
@@ -245,17 +355,24 @@ export async function runStudentQuestionImagePaste(e, opts) {
     }
     showToast('Uploading image…');
     try {
-      const r = await fetch(htmlSrc, { mode: 'cors' });
-      if (!r.ok) throw new Error('Could not download image (site blocked copy). Try right-click → Copy image.');
-      const blob0 = await r.blob();
+      const blob0 = await fetchImageBlob(htmlSrc);
       const jpeg2 = await resizeImageToJpegBlob(blob0);
       const url2 = await uploadImage(jpeg2);
-      setPendingImages((prev) =>
-        prev.map((row) => (row.pid === pid2 ? { pid: pid2, url: url2, blobUrl: '' } : row)),
-      );
+      replacePendingImage(pendingRef, setPendingImages, pid2, {
+        pid: pid2,
+        url: url2,
+        blobUrl: '',
+        uploading: false,
+      });
       showToast(attachedToast);
     } catch (err) {
       console.warn(err);
+      replacePendingImage(pendingRef, setPendingImages, pid2, {
+        pid: pid2,
+        url: htmlSrc,
+        blobUrl: '',
+        uploading: false,
+      });
       showToast(linkFallbackToast);
     }
   }

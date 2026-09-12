@@ -7,10 +7,12 @@ import { insertSlackFormat, insertEmoji } from '../utils/formatHelpers.js';
 import {
   newPasteId,
   questionImageUrlsFromPending,
-  questionPasteStoragePath,
-  revokePendingBlobUrl,
+  dropPendingImage,
+  clearPendingImagesList,
+  pendingImagesStillUploading,
   runStudentQuestionImagePaste,
   stripEmbeddedImageUrls,
+  uploadStudentQuestionJpeg,
 } from '../../lib/imagePaste.js';
 import useStudentDemoStore, { DEMO_STUDENT_USER_ID } from '../demo/useStudentDemoStore.js';
 import { createPendingSubmissions, submissionFingerprint } from '../lib/pendingSubmissions.js';
@@ -62,6 +64,7 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
   );
   const [submitting, setSubmitting] = useState(false);
   const textareaRef = useRef(null);
+  const pendingImagesRef = useRef([]);
   const textareaId = 'q-text';
   // Submissions whose Firestore write has not settled yet. Lives in a ref so it
   // survives every re-render of the ask box for as long as the student is in the
@@ -73,12 +76,9 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
   // Memoized over the same values handlePaste already depends on, so it stays
   // stable exactly as long as handlePaste does.
   const uploadImage = useCallback(
-    (jpegBlob) => {
-      if (!storage || !sessionCode) return Promise.reject(new Error('no storage'));
-      return storage
-        .ref(questionPasteStoragePath(sessionCode, userId))
-        .put(jpegBlob, { contentType: 'image/jpeg' })
-        .then((snap) => snap.ref.getDownloadURL());
+    async (jpegBlob) => {
+      await ensureAnonymousStudent();
+      return uploadStudentQuestionJpeg(storage, sessionCode, userId, jpegBlob);
     },
     [storage, sessionCode, userId],
   );
@@ -92,23 +92,18 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
         showToast,
         uploadImage,
         setPendingImages,
+        pendingRef: pendingImagesRef,
       }),
     [sessionCode, storage, showToast, isDemoMode, uploadImage],
   );
 
   function removePendingImage(pid) {
-    setPendingImages((prev) => {
-      const row = prev.find((r) => r.pid === pid);
-      revokePendingBlobUrl(row);
-      return prev.filter((r) => r.pid !== pid);
-    });
+    dropPendingImage(pendingImagesRef, setPendingImages, pid);
+    if (textareaRef.current) textareaRef.current.focus();
   }
 
   function clearPendingImages() {
-    setPendingImages((prev) => {
-      prev.forEach(revokePendingBlobUrl);
-      return [];
-    });
+    clearPendingImagesList(pendingImagesRef, setPendingImages);
   }
 
   // --- Submit question ---
@@ -157,7 +152,7 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
       return;
     }
 
-    if (pendingImages.some((r) => !r.url)) {
+    if (pendingImagesStillUploading(pendingImages)) {
       showToast('Wait for images to finish uploading, then submit.');
       return;
     }
@@ -344,7 +339,11 @@ export default function AskBox({ sessionCode, userId, userName, showToast, onSub
         aria-live="polite"
       >
         {pendingImages.map((row) => (
-          <span key={row.pid} className="paste-preview-item" data-pid={row.pid}>
+          <span
+            key={row.pid}
+            className={`paste-preview-item${row.uploading || !row.url ? ' is-uploading' : ''}`}
+            data-pid={row.pid}
+          >
             <img
               alt=""
               referrerPolicy="no-referrer"
