@@ -661,6 +661,31 @@ service cloud.firestore {
           && request.resource.data.body.size() <= 12000;
         allow update, delete: if false;
       }
+
+      // Attendance telemetry: one document per anonymous student per session,
+      // written once on join (src/lib/joinTracking.js). Lets usage reporting
+      // compare students who JOINED with students who asked or upvoted.
+      //   - doc id must be the caller's own uid, so a client can only ever mark
+      //     itself present, once per session;
+      //   - exactly one field, `at`, pinned to the server's request time, so
+      //     no client-chosen data (names, ids, blobs) can be stored here;
+      //   - the session must exist, so joins cannot be scattered under
+      //     made-up codes (one billed read per join, never repeated: the doc
+      //     is create-only and the client stops after its first success);
+      //   - create-only: update/delete denied, so the first-join time is fixed.
+      // Read is limited to the session's own instructors, like feedback.
+      match /joins/{joinUid} {
+        allow read: if isSalesforce() && instructsSession(sessionId);
+        allow create: if isSignedIn()
+          // Attendees only: instructors (Google) never count as joins.
+          && request.auth.token.get('firebase', {}).get('sign_in_provider', '') == 'anonymous'
+          && joinUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['at'])
+          && request.resource.data.keys().hasAll(['at'])
+          && request.resource.data.at == request.time
+          && exists(/databases/$(database)/documents/sessions/$(sessionId));
+        allow update, delete: if false;
+      }
     }
   }
 }

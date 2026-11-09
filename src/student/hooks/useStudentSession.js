@@ -3,7 +3,9 @@ import { useFirebase } from '../../shared/FirebaseContext.jsx';
 import {
   normalizeSessionCodeFromJoinInput,
 } from '../../lib/sessionCode.js';
+import firebase from '../../lib/firebaseCompat.js';
 import { ensureAnonymousStudent } from '../../lib/auth.js';
+import { createJoinRecorder } from '../../lib/joinTracking.js';
 import {
   IS_STUDENT_DEMO,
   DEMO_SESSION_CODE,
@@ -34,6 +36,15 @@ function safeLsSet(k, v) {
 function safeLsRemove(k) {
   try { localStorage.removeItem(k); } catch (e) {}
 }
+
+// Attendance telemetry: one create-only `sessions/{code}/joins/{uid}` write per
+// browser per session (see src/lib/joinTracking.js). Never blocks joining.
+const recordJoin = createJoinRecorder({
+  ensureUser: ensureAnonymousStudent,
+  serverTimestamp: () => firebase.firestore.FieldValue.serverTimestamp(),
+  storage: typeof localStorage !== 'undefined' ? localStorage : null,
+  log: (msg, detail) => console.debug(msg, detail),
+});
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
@@ -199,6 +210,7 @@ export function useStudentSession() {
       safeLsRemove(LS_LAST_SESSION_LEGACY);
       try { document.documentElement.classList.remove('std-restoring-session'); } catch (e) {}
       setAppState('app');
+      recordJoin(db, code); // fire-and-forget
     }).catch(() => { bailToJoin(); });
      
   }, [db]);
@@ -274,6 +286,7 @@ export function useStudentSession() {
       safeLsRemove(LS_LAST_SESSION_LEGACY);
       setJoining(false);
       setAppState('app');
+      recordJoin(db, codeValue); // fire-and-forget
     } catch (e) {
       setJoinError('Connection error. Please try again.');
       setJoining(false);

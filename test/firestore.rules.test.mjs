@@ -43,8 +43,9 @@ function nonSalesforce(uid = 'ext1', email = 'someone@gmail.com') {
   return testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
 }
 function anon(uid = 'stud1') {
-  // Anonymous student: signed in, no email on the token.
-  return testEnv.authenticatedContext(uid).firestore();
+  // Anonymous student: signed in, no email on the token, anonymous provider
+  // (matches the real token Firebase Auth mints for signInAnonymously()).
+  return testEnv.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
 }
 function unauthed() {
   return testEnv.unauthenticatedContext().firestore();
@@ -1470,6 +1471,68 @@ test('sessions: an owner claims a legacy session in ONE combined write', async (
   );
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Attendance telemetry — sessions/{code}/joins/{uid} (src/lib/joinTracking.js)
+// ─────────────────────────────────────────────────────────────────────────────
+const joinRef = (db, code, uid) => db.collection('sessions').doc(code).collection('joins').doc(uid);
+
+test('joins: a student can record their own join once, with a server timestamp', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-J1');
+  const { serverTimestamp } = await loadFieldValue();
+  await assertSucceeds(joinRef(anon('stud1'), 'SQA-J1', 'stud1').set({ at: serverTimestamp() }));
+  // Create-only: a second write is an update and is denied (first-join time is fixed).
+  await assertFails(joinRef(anon('stud1'), 'SQA-J1', 'stud1').set({ at: serverTimestamp() }));
+  await assertFails(joinRef(anon('stud1'), 'SQA-J1', 'stud1').delete());
+});
+
+test('joins: cannot mark someone else present, or join unauthenticated', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-J2');
+  const { serverTimestamp } = await loadFieldValue();
+  await assertFails(joinRef(anon('stud1'), 'SQA-J2', 'stud2').set({ at: serverTimestamp() }));
+  await assertFails(joinRef(unauthed(), 'SQA-J2', 'stud1').set({ at: serverTimestamp() }));
+});
+
+test('joins: instructors (non-anonymous identities) are never recorded', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-J5');
+  const { serverTimestamp } = await loadFieldValue();
+  await assertFails(joinRef(salesforce(), 'SQA-J5', 'inst1').set({ at: serverTimestamp() }));
+  await assertFails(joinRef(nonSalesforce(), 'SQA-J5', 'ext1').set({ at: serverTimestamp() }));
+});
+
+test('joins: payload is exactly { at: request.time }', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-J3');
+  const { serverTimestamp } = await loadFieldValue();
+  const db = anon('stud1');
+  // Client-chosen time is rejected (no backdating or inflating history).
+  await assertFails(joinRef(db, 'SQA-J3', 'stud1').set({ at: new Date('2020-01-01') }));
+  // Extra fields (names, ids, blobs) are rejected.
+  await assertFails(joinRef(db, 'SQA-J3', 'stud1').set({ at: serverTimestamp(), name: 'Alex' }));
+  // Empty doc rejected.
+  await assertFails(joinRef(db, 'SQA-J3', 'stud1').set({}));
+});
+
+test('joins: cannot be scattered under a session that does not exist', async () => {
+  await testEnv.clearFirestore();
+  const { serverTimestamp } = await loadFieldValue();
+  await assertFails(joinRef(anon('stud1'), 'SQA-NOPE', 'stud1').set({ at: serverTimestamp() }));
+});
+
+test('joins: only the session\'s own instructors can read them', async () => {
+  await testEnv.clearFirestore();
+  await seedSession('SQA-J4');
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('sessions').doc('SQA-J4').collection('joins').doc('stud1').set({ at: new Date() });
+  });
+  await assertSucceeds(joinRef(salesforce(), 'SQA-J4', 'stud1').get());
+  await assertFails(joinRef(salesforce('mal', MALLORY), 'SQA-J4', 'stud1').get());
+  await assertFails(joinRef(anon('stud1'), 'SQA-J4', 'stud1').get());
+  await assertFails(anon('stud1').collection('sessions').doc('SQA-J4').collection('joins').get());
+});
+
 // --- helpers ---
 async function seedSession(code) {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -1491,6 +1554,7 @@ async function loadFieldValue() {
     arrayRemove: FieldValue.arrayRemove,
     increment: FieldValue.increment,
     deleteField: FieldValue.delete,
+    serverTimestamp: FieldValue.serverTimestamp,
   };
 }
 
